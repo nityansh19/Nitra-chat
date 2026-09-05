@@ -29,6 +29,22 @@ function makeNitraId(name: string) {
   return `@${base}_${suffix}`;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms = 15000, message = "Firebase is taking too long to respond. Check your Firebase configuration and try again."): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function registerWithFirebase(input: {
   name: string;
   email: string;
@@ -36,10 +52,26 @@ export async function registerWithFirebase(input: {
   password: string;
 }): Promise<UserProfile> {
   const auth = getFirebaseAuth();
-  const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
+
+  // Give Auth a finite deadline so the registration UI can never remain stuck
+  // forever when a Firebase project/domain/network setting is wrong.
+  let credential;
+  try {
+    credential = await withTimeout(
+      createUserWithEmailAndPassword(auth, input.email.trim(), input.password),
+      15000,
+      "Firebase Authentication did not respond within 15 seconds. Check that Email/Password sign-in is enabled and that nitrachat.vercel.app is an authorized domain.",
+    );
+  } catch (error) {
+    throw error;
+  }
 
   try {
-    await updateProfile(credential.user, { displayName: input.name.trim() });
+    await withTimeout(
+      updateProfile(credential.user, { displayName: input.name.trim() }),
+      10000,
+      "Firebase created the account, but updating the profile timed out. Please sign in again.",
+    );
 
     const profile: UserProfile = {
       uid: credential.user.uid,
@@ -57,14 +89,26 @@ export async function registerWithFirebase(input: {
       privacy: { showEmail: false, showPhone: false },
     };
 
-    await createUserProfile(profile);
+    try {
+      await withTimeout(
+        createUserProfile(profile),
+        15000,
+        "Your Firebase account was created, but Firestore did not respond. Publish the Firestore rules and make sure the Firestore database is active.",
+      );
+    } catch (error) {
+      // The Auth account already exists. Do not delete it while cleanup itself
+      // can hang; the user can still sign in and the profile can be retried.
+      throw error;
+    }
+
     return profile;
   } catch (error) {
-    // Avoid leaving an Auth account behind when the Firestore profile cannot be created.
+    // Best-effort cleanup only. Never let cleanup keep the registration spinner
+    // running after the real Firebase operation has already failed.
     try {
-      await deleteUser(credential.user);
+      await withTimeout(deleteUser(credential.user), 5000, "");
     } catch {
-      // Keep the original error; a failed cleanup should not hide the real problem.
+      // Keep the original error.
     }
     throw error;
   }
@@ -72,8 +116,16 @@ export async function registerWithFirebase(input: {
 
 export async function loginWithFirebase(email: string, password: string): Promise<UserProfile> {
   const auth = getFirebaseAuth();
-  const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-  const profile = await getUserProfile(credential.user.uid);
+  const credential = await withTimeout(
+    signInWithEmailAndPassword(auth, email.trim(), password),
+    15000,
+    "Firebase Authentication did not respond within 15 seconds. Check your connection and Firebase configuration.",
+  );
+  const profile = await withTimeout(
+    getUserProfile(credential.user.uid),
+    10000,
+    "Firebase signed you in, but Firestore did not respond. Check the Firestore configuration.",
+  );
   if (profile) return profile;
 
   const fallback: UserProfile = {
@@ -85,7 +137,7 @@ export async function loginWithFirebase(email: string, password: string): Promis
     bio: "",
     status: "Available",
   };
-  await createUserProfile(fallback);
+  await withTimeout(createUserProfile(fallback), 10000, "Firebase signed you in, but the Nitra profile could not be created.");
   return fallback;
 }
 
