@@ -10,10 +10,33 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isParticipant(conversationId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+    }
+
     match /users/{uid} {
       allow create: if isOwner(uid);
       allow read: if signedIn();
       allow update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+    match /friendRequests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.receiverId != request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      allow read: if signedIn()
+        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+
+      allow update: if signedIn()
+        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid)
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.receiverId == resource.data.receiverId
+        && request.resource.data.status in ['pending', 'accepted', 'declined', 'cancelled'];
+
       allow delete: if false;
     }
 
@@ -27,11 +50,9 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if signedIn()
-          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow read: if isParticipant(conversationId);
 
-        allow create: if signedIn()
-          && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds
+        allow create: if isParticipant(conversationId)
           && request.resource.data.senderId == request.auth.uid;
 
         allow update, delete: if signedIn()
