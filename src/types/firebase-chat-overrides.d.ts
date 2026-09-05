@@ -1,5 +1,5 @@
 import type { UserProfile } from "@/lib/firebase-chat";
 
 declare module "@/lib/firebase-chat" {
-  function getUserProfile(uid: string): Promise<UserProfile>;
+  export function getUserProfile(uid: string): Promise<UserProfile>;
 }
