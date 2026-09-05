@@ -4,7 +4,7 @@ A premium, futuristic real-time communication workspace built from scratch with 
 
 ## Current phase
 
-**Phase 5 — Database foundation & visible Nitra network**
+**Phase 5 — Database foundation, Nitra network & profiles**
 
 ### Phase 0/1 foundation
 - Premium dark-first communication workspace
@@ -59,6 +59,11 @@ A premium, futuristic real-time communication workspace built from scratch with 
 - New `/connections` workspace for a visible database-backed discovery flow
 - Search by Nitra ID, display name, email, or phone
 - User profile preview and database status surface
+- In-app profile customization from `/profile`
+- Profile picture upload with local preview and 2 MB image limit
+- Editable role/headline, location, website, bio, and status
+- Profile completion indicator
+- Persistent profile customization in the current frontend session
 
 ## Run locally
 
@@ -75,7 +80,7 @@ For Phase 5 database features, copy `.env.example` to `.env.local` and set `MONG
 - `POST /api/users/register` — creates a database user from `name`, `email`, `phone`, and `password`.
 - `GET /api/users/search?q=` — searches persisted users by Nitra ID, name, email, or phone.
 
-The visible Phase 5 workflow is available at `/connections`.
+The visible Phase 5 workflow is available at `/connections`, while personal profile editing is available at `/profile`.
 
 ## Roadmap
 
@@ -83,7 +88,7 @@ The visible Phase 5 workflow is available at `/connections`.
 2. Interactive workspace — complete
 3. Authentication & Nitra identity frontend — complete
 4. Profiles & Nitra identity workspace — complete
-5. Database foundation & visible Nitra network — **complete**
+5. Database foundation, Nitra network & profiles — **complete**
 6. REST API layer — next
 7. WebSocket real-time messaging
 8. Presence, typing, reactions, and message actions — UI prototype complete; backend integration later
@@ -91,4 +96,4 @@ The visible Phase 5 workflow is available at `/connections`.
 10. Offline/error/loading states
 11. Production polish and deployment
 
-> Phase 3/4 local auth remains available for the frontend prototype. Phase 5 introduces the database foundation and visible database-backed search, but it does **not** yet provide production session management, login API, authorization, or real-time synchronization. Those are intentionally separated into the next backend phases.
+> Phase 3/4 local auth remains available for the frontend prototype. Phase 5 introduces the database foundation and visible database-backed search. Profile picture and profile-field editing currently persist in browser storage; they are ready to be moved to the database when the REST API/profile persistence phase is implemented. Phase 5 does **not** yet provide production session management, login API, authorization, or real-time synchronization.
