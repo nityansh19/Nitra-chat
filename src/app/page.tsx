@@ -115,7 +115,7 @@ function Home() {
   const openChat = (id: string) => { setActiveId(id); setMobileList(false); setChats(p => p.map(c => c.id === id ? { ...c, unread: 0 } : c)); };
   const updateChat = (patch: Partial<Chat>) => { if (active) setChats(p => p.map(c => c.id === active.id ? { ...c, ...patch } : c)); };
   const send = (override?: string) => { const text = (override ?? message).trim(); if (!text || !active) return; const now = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); setChats(p => p.map(c => c.id === active.id ? { ...c, lastTime: now, messages: [...c.messages, { id: Date.now(), from: "me", text, time: now }] } : c)); setMessage(""); setPicker(false); inputRef.current?.focus(); };
-  const createChat = (contact: Contact) => { const id = `chat-${contact.id}`; setChats(p => p.some(c => c.id === id) ? c : [...p, { id, contact, messages: [], unread: 0, lastTime: "New" }]); setActiveId(id); setTab("inbox"); notify(`Conversation with ${contact.name} created`); };
+  const createChat = (contact: Contact) => { const id = `chat-${contact.id}`; setChats(p => p.some(c => c.id === id) ? p : [...p, { id, contact, messages: [], unread: 0, lastTime: "New" }]); setActiveId(id); setTab("inbox"); notify(`Conversation with ${contact.name} created`); };
   if (!ready) return <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-white/30">Loading Nitra…</div>;
   if (!user) return <AuthScreen onLogin={setUser} />;
   return <main className="h-[100dvh] overflow-hidden bg-[#07080c] text-white noise-bg"><div className="relative flex h-full min-h-0 gap-3 p-2 sm:p-3 lg:p-4">
