@@ -6,7 +6,7 @@ import {
   updateProfile,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { auth } from "./firebase";
+import { getFirebaseAuth } from "./firebase";
 import { createUserProfile, getUserProfile, type UserProfile } from "./firebase-chat";
 
 function initialsFromName(name: string) {
@@ -34,6 +34,7 @@ export async function registerWithFirebase(input: {
   phone: string;
   password: string;
 }): Promise<UserProfile> {
+  const auth = getFirebaseAuth();
   const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
   await updateProfile(credential.user, { displayName: input.name.trim() });
 
@@ -58,11 +59,11 @@ export async function registerWithFirebase(input: {
 }
 
 export async function loginWithFirebase(email: string, password: string): Promise<UserProfile> {
+  const auth = getFirebaseAuth();
   const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
   const profile = await getUserProfile(credential.user.uid);
   if (profile) return profile;
 
-  // Recover gracefully if an Auth account exists without its Firestore profile.
   const fallback: UserProfile = {
     uid: credential.user.uid,
     name: credential.user.displayName || credential.user.email?.split("@")[0] || "Nitra User",
@@ -77,9 +78,9 @@ export async function loginWithFirebase(email: string, password: string): Promis
 }
 
 export async function logoutFromFirebase() {
-  await signOut(auth);
+  await signOut(getFirebaseAuth());
 }
 
 export function subscribeToFirebaseAuth(callback: (user: FirebaseUser | null) => void) {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(getFirebaseAuth(), callback);
 }
