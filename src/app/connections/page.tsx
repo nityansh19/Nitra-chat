@@ -79,7 +79,7 @@ export default function ConnectionsPage() {
     let alive = true;
     Promise.all(ids.map(async (id) => [id, await getUserProfile(id)] as const)).then((entries) => {
       if (!alive) return;
-      setProfiles((prev) => ({ ...prev, ...Object.fromEntries(entries.filter(([, profile]) => profile)) }));
+      setProfiles((prev) => ({ ...prev, ...Object.fromEntries(entries.filter(([, profile]): profile is UserProfile => profile !== null)) }));
     }).catch(() => undefined);
     return () => { alive = false; };
   }, [friendIds, requests]);
