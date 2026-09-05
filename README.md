@@ -4,7 +4,7 @@ A premium, futuristic real-time communication workspace built from scratch with 
 
 ## Current phase
 
-**Phase 5 — Database foundation**
+**Phase 5 — Database foundation & visible Nitra network**
 
 ### Phase 0/1 foundation
 - Premium dark-first communication workspace
@@ -55,7 +55,10 @@ A premium, futuristic real-time communication workspace built from scratch with 
 - `GET /api/health` database connectivity check
 - `POST /api/users/register` database-backed account creation
 - Password hashing with bcrypt before persistence
-- `.env.example` for the MongoDB connection string
+- `GET /api/users/search?q=` database-backed Nitra user search
+- New `/connections` workspace for a visible database-backed discovery flow
+- Search by Nitra ID, display name, email, or phone
+- User profile preview and database status surface
 
 ## Run locally
 
@@ -70,17 +73,9 @@ For Phase 5 database features, copy `.env.example` to `.env.local` and set `MONG
 
 - `GET /api/health` — verifies that Nitra Chat can connect to MongoDB.
 - `POST /api/users/register` — creates a database user from `name`, `email`, `phone`, and `password`.
+- `GET /api/users/search?q=` — searches persisted users by Nitra ID, name, email, or phone.
 
-Example request body:
-
-```json
-{
-  "name": "Nityansh",
-  "email": "nityansh@example.com",
-  "phone": "+91XXXXXXXXXX",
-  "password": "a-strong-password"
-}
-```
+The visible Phase 5 workflow is available at `/connections`.
 
 ## Roadmap
 
@@ -88,7 +83,7 @@ Example request body:
 2. Interactive workspace — complete
 3. Authentication & Nitra identity frontend — complete
 4. Profiles & Nitra identity workspace — complete
-5. Database foundation — **complete**
+5. Database foundation & visible Nitra network — **complete**
 6. REST API layer — next
 7. WebSocket real-time messaging
 8. Presence, typing, reactions, and message actions — UI prototype complete; backend integration later
@@ -96,4 +91,4 @@ Example request body:
 10. Offline/error/loading states
 11. Production polish and deployment
 
-> Phase 3/4 local auth remains available for the frontend prototype. Phase 5 introduces the database foundation and registration API, but it does **not** yet provide production session management, login API, authorization, or real-time synchronization. Those are intentionally separated into the next backend phases.
+> Phase 3/4 local auth remains available for the frontend prototype. Phase 5 introduces the database foundation and visible database-backed search, but it does **not** yet provide production session management, login API, authorization, or real-time synchronization. Those are intentionally separated into the next backend phases.
