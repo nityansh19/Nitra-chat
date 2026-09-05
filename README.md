@@ -1,137 +1,92 @@
 # Nitra Chat
 
-A premium, futuristic real-time communication workspace built from scratch with Next.js, TypeScript, Tailwind CSS, Motion, Lucide, and Firebase.
+A premium, futuristic communication workspace built with Next.js, TypeScript, Tailwind CSS, Motion, and Lucide. The product direction is intentionally closer to a focused communication workspace than a generic messaging clone.
 
-## Current phase
+## Current status
 
-**Firebase migration — foundation ready**
+**Frontend experience — polished / ready for backend migration**
 
-The project is moving from the earlier MongoDB/JWT prototype to Firebase so the realtime communication stack can be built around Firebase Authentication + Cloud Firestore.
+### Frontend foundation
+- Premium dark-first visual system with restrained glass depth
+- Three-layer desktop workspace: navigation rail, conversation list, active chat, optional context panel
+- Responsive mobile conversation drawer and adaptive layouts
+- Motion-based transitions for messages, overlays, panels, and feedback
+- Reduced-motion support and keyboard-focus states
+- Premium login / registration visual experience
+- Dedicated profile workspace
 
-### Phase 0/1 foundation
-- Premium dark-first communication workspace
-- Three-layer desktop layout: navigation rail, conversations, active chat
-- Optional conversation details panel
-- Responsive mobile conversation drawer
-- Animated message entrance and typing state
+### Messaging experience
+- Conversation switching
+- Search conversations and message text
+- Command/search overlay with `Cmd/Ctrl + K`
+- New conversation flow
+- Empty, filtered, and contextual states
+- Unread badges and read-state visuals
+- Message hover actions
+- Quick reactions and reaction pills
+- Save message interaction
+- Delete own-message interaction
+- Pin / mute / archive conversation controls
+- Copy Nitra ID interaction
+- Context/details panel with message and saved counts
+- Auto-scroll to latest messages
+- Simulated typing/reply feedback for frontend prototyping
 
-### Phase 2 additions
-- Conversation switching with per-chat local message state
-- Unread counts clear when a conversation is opened
-- Command palette with `Cmd/Ctrl + K` and `Esc`
-- Search conversations from the command palette
-- Functional new-message action
-- Message actions and local reactions
-- Emoji picker
-- Automatic scroll-to-latest-message
-- Simulated reply/typing feedback
-- Interactive call/video/info/attachment controls with feedback toasts
-- Empty search state and keyboard-focus accessibility polish
-- Reduced-motion support
+### Expressive communication
+- Dedicated emoji picker with quick emoji grid
+- GIF picker section with curated animated-style reaction cards
+- GIF search/filter UI
+- Emoji insertion into the composer
+- GIF reaction sending flow
+- Attachment affordance
+- Voice-note affordance and recording preview state
+- Call and video-call affordances
+- Toast feedback for interactive actions
 
-### Phase 3 additions
-- Premium login and registration screens
-- Registration with display name, email, phone number, password, and confirmation
-- Frontend validation and automatic Nitra ID generation
-- Local demo identity/session persistence
-- Personalized workspace identity and sign-out interaction
+### UX polish
+- Layered glass surfaces
+- Soft ambient background lighting
+- Gradient typography
+- Hover elevation and micro-interactions
+- Consistent icon buttons with labels/tooltips
+- Empty states with clear next actions
+- Keyboard shortcut modal
+- Search overlay
+- Mobile-first interaction adjustments
+- Scrollbar and selection polish
+- Noise texture for subtle depth
 
-### Phase 4 additions
-- Dedicated `/profile` identity workspace
-- Premium profile header with Nitra ID and live status
-- Editable display name, bio, and status
-- Copy-Nitra-ID interaction
-- Email and phone identity summary
-- Privacy controls UI
-- Profile picture upload and profile customization UI
+## Backend direction
 
-### Previous backend prototype
-- MongoDB connection layer and Mongoose models were used as the first backend prototype
-- JWT HTTP-only sessions, REST APIs, and database-backed search were implemented during the prototype stage
-- The frontend still contained prototype/local state in some areas
+The project has a Firebase foundation and a Firestore database has been created for the Nitra Chat project. The remaining migration is intentionally separated from the UI work so the polished frontend can be connected to real services without destabilizing the design.
 
-### Firebase foundation — current
-- Firebase project: `nitra-chat-3fd77`
-- Firebase Web SDK added to the application
-- Firebase Authentication client initialized
-- Cloud Firestore client initialized
-- Firestore data-access layer added for users, conversations, and messages
-- Realtime Firestore subscriptions prepared for conversations and messages
-- Direct-conversation creation/find logic prepared
-- User search prepared for Nitra ID, name, email, and phone
-- Message sending prepared with reply support and conversation metadata updates
-- Firestore security rules included under `firebase/firestore.rules`
-- Firestore composite index configuration included under `firebase/firestore.indexes.json`
-- Firebase CLI deployment configuration included in `firebase.json`
-- Local environment files are ignored by Git
+Planned production architecture:
 
-## Firebase setup
-
-The Firebase project is already created and the Cloud Firestore database has been created.
-
-Enable **Authentication → Sign-in method → Email/Password** in the Firebase Console before testing authentication.
-
-Copy `.env.example` to `.env.local` if you want to override the Firebase Web configuration with environment variables. The checked-in client configuration is not a service-account credential; Firebase Web API configuration is designed to be used by browser clients.
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=nitra-chat-3fd77
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+```text
+Next.js UI
+   │
+   ├── Firebase Authentication
+   │
+   ├── Cloud Firestore
+   │      ├── users
+   │      ├── conversations
+   │      └── messages subcollections
+   │
+   └── Media provider / storage solution
 ```
 
-Then install dependencies and run the app:
+> Cloud Storage is not enabled on the current Firebase Spark setup. The frontend keeps attachment/profile-media controls as UI affordances until a storage provider is selected.
+
+## Local development
 
 ```bash
 npm install
 npm run dev
 ```
 
-### Storage note
+Create `.env.local` from `.env.example` and add the Firebase Web App configuration for the Nitra Chat project.
 
-Firebase Cloud Storage is **not enabled** because the current project is on the no-cost Spark plan and the Firebase Console is requiring the Blaze billing plan for Storage. Nitra Chat will therefore keep Storage out of the critical path for now. Profile/media storage will be added later only when a suitable no-cost storage strategy is chosen.
-
-## Firebase data model
-
-```text
-users/{uid}
-  name
-  email
-  phone
-  nitraId
-  initials
-  bio
-  status
-  avatarUrl
-  role
-  location
-  website
-  privacy
-  createdAt
-  updatedAt
-
-conversations/{conversationId}
-  type
-  title
-  participantIds
-  lastMessageId
-  lastMessageText
-  lastMessageAt
-  createdAt
-  updatedAt
-
-conversations/{conversationId}/messages/{messageId}
-  senderId
-  text
-  replyToId
-  reactions
-  editedAt
-  deletedAt
-  createdAt
-```
+Never commit `.env.local` or private credentials.
 
 ## Roadmap
 
@@ -139,14 +94,28 @@ conversations/{conversationId}/messages/{messageId}
 2. Interactive workspace — complete
 3. Authentication & Nitra identity frontend — complete
 4. Profiles & Nitra identity workspace — complete
-5. MongoDB backend prototype — complete as prototype
-6. Firebase project + Firestore foundation — **complete**
-7. Firebase Authentication migration — next
-8. Firebase-backed profiles and user discovery
-9. Realtime conversations and messages
-10. Presence, typing, reactions, replies, editing and deletion
-11. Offline/loading/error states
-12. Media strategy without making paid Storage a requirement
-13. Production polish and Vercel deployment
+5. Database foundation — complete
+6. REST/API foundation — complete as legacy migration layer
+7. **Frontend visual completion — complete**
+8. Firebase Authentication migration — next
+9. Firestore users, conversations and realtime messages
+10. Reactions, replies, unread state and message actions with backend persistence
+11. Presence / typing / notifications
+12. Media and attachment storage provider
+13. Offline, loading and error states
+14. Production security rules and deployment polish
 
-> The Firebase data layer is now prepared, but the existing UI is not yet fully migrated to Firebase. The next implementation step is replacing the demo/localStorage authentication flow with Firebase Authentication and wiring the workspace to Firestore.
+## Tech stack
+
+- Next.js 15
+- React 19
+- TypeScript
+- Tailwind CSS
+- Motion
+- Lucide React
+- Firebase SDK
+- Firestore
+
+## Project
+
+Built from scratch as Nitra Chat — a serious full-stack communication project with a premium product-focused UI and a backend architecture designed to evolve in phases.
