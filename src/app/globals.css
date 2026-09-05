@@ -31,25 +31,91 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 }
 
 .field {
-  display: block;
-  width: 100%;
-  height: 48px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  background: rgba(0,0,0,.20);
+  display: block !important;
+  width: 100% !important;
+  min-width: 0;
+  flex: 0 0 100%;
+  height: 50px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
   padding: 0 16px;
   color: #fff;
   font-size: 14px;
   line-height: 20px;
   outline: none;
-  transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 10px 30px rgba(0,0,0,.12);
+  transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
-.field::placeholder { color: rgba(255,255,255,.16); }
-.field:hover { border-color: rgba(255,255,255,.12); }
+.field::placeholder { color: rgba(255,255,255,.25); }
+.field:hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.05); }
 .field:focus {
-  border-color: rgba(196,181,253,.35);
-  background: rgba(255,255,255,.035);
-  box-shadow: 0 0 0 3px rgba(139,92,246,.06);
+  border-color: rgba(167,139,250,.55);
+  background: rgba(255,255,255,.055);
+  box-shadow: 0 0 0 4px rgba(139,92,246,.08), inset 0 1px 0 rgba(255,255,255,.04), 0 14px 35px rgba(0,0,0,.16);
+  transform: translateY(-1px);
+}
+
+/* Auth screen: keep the form vertical and restore the layered premium treatment even if utility CSS is stale. */
+main.noise-bg {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 15% 18%, rgba(124,58,237,.13), transparent 28%),
+    radial-gradient(circle at 86% 78%, rgba(6,182,212,.10), transparent 30%),
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.035), transparent 34%),
+    #06070a;
+}
+main.noise-bg > .relative.z-10.grid {
+  position: relative;
+  border-color: rgba(255,255,255,.105);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.055), rgba(255,255,255,.018) 42%, rgba(255,255,255,.025)),
+    rgba(10,12,17,.76);
+  box-shadow: 0 35px 100px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.025) inset, 0 0 90px rgba(76,29,149,.08);
+}
+main.noise-bg > .relative.z-10.grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.055), transparent 24%, transparent 70%, rgba(34,211,238,.025));
+  z-index: -1;
+}
+main.noise-bg form {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100%;
+  gap: 16px;
+}
+main.noise-bg form > .field,
+main.noise-bg form > p,
+main.noise-bg form > button {
+  width: 100% !important;
+  flex: 0 0 auto;
+}
+main.noise-bg form > p { margin: 0; }
+main.noise-bg form > button {
+  margin-top: 2px;
+  box-shadow: 0 12px 35px rgba(255,255,255,.08);
+  transition: transform .2s ease, box-shadow .2s ease, opacity .2s ease;
+}
+main.noise-bg form > button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 42px rgba(255,255,255,.13);
+}
+main.noise-bg form + button {
+  background: rgba(255,255,255,.018);
+  transition: border-color .2s ease, background-color .2s ease, color .2s ease, transform .2s ease;
+}
+main.noise-bg form + button:hover {
+  border-color: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.055);
+  color: rgba(255,255,255,.78);
+  transform: translateY(-1px);
 }
 
 .noise::before,
@@ -124,6 +190,7 @@ textarea { scrollbar-width: thin; }
   main.noise-bg > .relative.z-10.grid.w-full.max-w-5xl { width: 100%; max-height: calc(100dvh - 24px); overflow-y: auto; border-radius: 24px; }
   main.noise-bg > .relative.z-10.grid.w-full.max-w-5xl > section:last-child { padding: 24px 20px max(24px, env(safe-area-inset-bottom)); }
   main.noise-bg input { font-size: 16px; }
+  main.noise-bg form { gap: 12px !important; }
 }
 
 @media (max-width: 380px) {
