@@ -14,7 +14,7 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { getFirebaseDb } from "./firebase";
 
 export type UserProfile = {
   uid: string;
@@ -53,16 +53,23 @@ export type ChatMessage = {
   createdAt?: unknown;
 };
 
-const usersRef = collection(db, "users");
-const conversationsRef = collection(db, "conversations");
+function getUsersRef() {
+  return collection(getFirebaseDb(), "users");
+}
+
+function getConversationsRef() {
+  return collection(getFirebaseDb(), "conversations");
+}
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const db = getFirebaseDb();
   const snapshot = await getDoc(doc(db, "users", uid));
   if (!snapshot.exists()) return null;
   return { uid: snapshot.id, ...(snapshot.data() as Omit<UserProfile, "uid">) };
 }
 
 export async function createUserProfile(profile: UserProfile) {
+  const db = getFirebaseDb();
   await setDoc(doc(db, "users", profile.uid), {
     name: profile.name,
     email: profile.email,
@@ -82,6 +89,7 @@ export async function createUserProfile(profile: UserProfile) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserProfile>) {
+  const db = getFirebaseDb();
   const { uid: _uid, ...safePatch } = patch;
   await updateDoc(doc(db, "users", uid), { ...safePatch, updatedAt: serverTimestamp() });
 }
@@ -90,6 +98,7 @@ export async function searchUsers(search: string, currentUid?: string): Promise<
   const normalized = search.trim().toLowerCase();
   if (!normalized) return [];
 
+  const usersRef = getUsersRef();
   const fields = ["nitraId", "email", "name", "phone"] as const;
   const results = new Map<string, UserProfile>();
 
@@ -112,6 +121,7 @@ export async function searchUsers(search: string, currentUid?: string): Promise<
 }
 
 export async function findOrCreateDirectConversation(uid: string, otherUid: string) {
+  const conversationsRef = getConversationsRef();
   const existing = await getDocs(
     query(
       conversationsRef,
@@ -138,6 +148,7 @@ export async function findOrCreateDirectConversation(uid: string, otherUid: stri
 }
 
 export function subscribeToConversations(uid: string, callback: (items: Conversation[]) => void): Unsubscribe {
+  const conversationsRef = getConversationsRef();
   const q = query(
     conversationsRef,
     where("participantIds", "array-contains", uid),
@@ -149,6 +160,7 @@ export function subscribeToConversations(uid: string, callback: (items: Conversa
 }
 
 export function subscribeToMessages(conversationId: string, callback: (items: ChatMessage[]) => void): Unsubscribe {
+  const db = getFirebaseDb();
   const messagesRef = collection(db, "conversations", conversationId, "messages");
   const q = query(messagesRef, orderBy("createdAt", "asc"));
   return onSnapshot(q, (snapshot) => {
@@ -165,6 +177,7 @@ export async function sendMessage(
   const cleanText = text.trim();
   if (!cleanText) return null;
 
+  const db = getFirebaseDb();
   const messagesRef = collection(db, "conversations", conversationId, "messages");
   const created = await addDoc(messagesRef, {
     senderId,
