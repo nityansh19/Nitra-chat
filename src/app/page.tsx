@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Archive, BellOff, Bookmark, CheckCheck, ChevronRight, Copy, Info, Menu, MessageCircle, Paperclip, Phone, Plus, Search, Send, Settings, Shield, Smile, Sparkles, Star, Trash2, UserPlus, Video, X, Zap } from "lucide-react";
+import { Archive, BellOff, Bookmark, CheckCheck, ChevronRight, Copy, Info, Menu, MessageCircle, Paperclip, Phone, Pin, Plus, Search, Send, Settings, Shield, Smile, Sparkles, Star, Trash2, UserPlus, Video, X, Zap } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
