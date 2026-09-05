@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/mongodb";
 import { Conversation } from "@/lib/models/Conversation";
 import { User } from "@/lib/models/User";
-import { Message } from "@/lib/models/Message";
 import { getSessionUserId } from "@/lib/auth";
 
 export async function GET() {
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
     if (!nitraId) return NextResponse.json({ error: "A Nitra ID is required." }, { status: 400 });
 
     await connectDB();
-    const other = await User.findOne({ nitraId }).lean();
+    const other = (await User.findOne({ nitraId }).lean()) as any;
     if (!other) return NextResponse.json({ error: "Nitra user not found." }, { status: 404 });
     if (other._id.toString() === userId) return NextResponse.json({ error: "You cannot start a conversation with yourself." }, { status: 400 });
 
