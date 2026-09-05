@@ -4,17 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Database, MessageCircle, Search, UserPlus, Wifi, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-type FoundUser = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  nitraId: string;
-  initials: string;
-  bio?: string;
-  status?: string;
-};
+import { findOrCreateDirectConversation, searchUsers, type UserProfile } from "@/lib/firebase-chat";
 
 function Avatar({ initials }: { initials: string }) {
   return (
@@ -26,31 +16,37 @@ function Avatar({ initials }: { initials: string }) {
 
 export default function ConnectionsPage() {
   const [query, setQuery] = useState("");
-  const [users, setUsers] = useState<FoundUser[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<FoundUser | null>(null);
-  const [currentUser, setCurrentUser] = useState<FoundUser | null>(null);
+  const [selected, setSelected] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("nitra-demo-user");
-    if (saved) {
+    if (!saved) return;
+    try {
       const user = JSON.parse(saved);
-      setCurrentUser({
-        id: user.id ?? "local",
-        name: user.name,
-        email: user.email,
-        phone: user.phone ?? "",
-        nitraId: user.nitraId ?? user.id,
-        initials: user.initials ?? "NC",
-        bio: user.bio ?? "",
-        status: user.status ?? "Available",
-      });
+      if (user.uid) {
+        setCurrentUser({
+          uid: user.uid,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || "",
+          nitraId: user.id || user.nitraId || "@nitra_user",
+          initials: user.initials || "NU",
+          bio: user.bio || "",
+          status: user.status || "Available",
+        });
+      }
+    } catch {
+      setCurrentUser(null);
     }
   }, []);
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    if (query.trim().length < 2 || !currentUser?.uid) {
       setUsers([]);
       setError("");
       return;
@@ -59,10 +55,7 @@ export default function ConnectionsPage() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch(`/api/users/search?q=${encodeURIComponent(query.trim())}`);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Search failed");
-        setUsers(data.users ?? []);
+        setUsers(await searchUsers(query, currentUser.uid));
       } catch (err) {
         setUsers([]);
         setError(err instanceof Error ? err.message : "Unable to search Nitra.");
@@ -71,7 +64,23 @@ export default function ConnectionsPage() {
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [query, currentUser?.uid]);
+
+  async function startConversation(user: UserProfile) {
+    if (!currentUser?.uid) {
+      setError("Sign in again before starting a conversation.");
+      return;
+    }
+    setCreating(true);
+    try {
+      await findOrCreateDirectConversation(currentUser.uid, user.uid);
+      window.location.href = "/";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create the conversation.");
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <main className="noise min-h-screen bg-[#07080c] px-4 py-6 text-white sm:px-8 lg:px-12">
@@ -82,12 +91,12 @@ export default function ConnectionsPage() {
               <ArrowLeft size={17} />
             </Link>
             <div>
-              <p className="text-[10px] uppercase tracking-[.22em] text-white/25">Nitra / Phase 05</p>
+              <p className="text-[10px] uppercase tracking-[.22em] text-white/25">Nitra / Connections</p>
               <h1 className="mt-1 text-xl font-semibold tracking-tight">Connections</h1>
             </div>
           </div>
           <div className="hidden items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[.06] px-3 py-1.5 text-[10px] font-medium text-emerald-300 sm:flex">
-            <Wifi size={12} /> Database layer active
+            <Wifi size={12} /> Firebase active
           </div>
         </header>
 
@@ -96,7 +105,7 @@ export default function ConnectionsPage() {
             <div className="mb-6 max-w-2xl">
               <p className="text-xs font-medium uppercase tracking-[.2em] text-cyan-300/50">Find people</p>
               <h2 className="mt-3 text-4xl font-semibold tracking-[-.04em] sm:text-5xl">Start a new conversation.</h2>
-              <p className="mt-4 text-sm leading-6 text-white/35">Search the Nitra database by Nitra ID, display name, email, or phone number. This is the first visible database-backed workflow.</p>
+              <p className="mt-4 text-sm leading-6 text-white/35">Search Nitra users by Nitra ID, display name, email, or phone number.</p>
             </div>
 
             <div className="relative">
@@ -108,24 +117,24 @@ export default function ConnectionsPage() {
             <div className="mt-4 space-y-2">
               <AnimatePresence mode="popLayout">
                 {users.map((user) => (
-                  <motion.button key={user.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} onClick={() => setSelected(user)} className="flex w-full items-center gap-4 rounded-2xl border border-white/[.06] bg-white/[.025] p-4 text-left transition hover:border-white/[.12] hover:bg-white/[.05]">
+                  <motion.button key={user.uid} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} onClick={() => setSelected(user)} className="flex w-full items-center gap-4 rounded-2xl border border-white/[.06] bg-white/[.025] p-4 text-left transition hover:border-white/[.12] hover:bg-white/[.05]">
                     <Avatar initials={user.initials} />
                     <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{user.name}</p><p className="mt-1 truncate text-xs text-cyan-300/55">{user.nitraId}</p><p className="mt-1 truncate text-xs text-white/25">{user.status || "Available"}</p></div>
                     <UserPlus size={17} className="text-white/25" />
                   </motion.button>
                 ))}
               </AnimatePresence>
-              {loading && <div className="rounded-2xl border border-white/[.06] bg-white/[.025] p-5 text-sm text-white/35">Searching the Nitra database…</div>}
+              {loading && <div className="rounded-2xl border border-white/[.06] bg-white/[.025] p-5 text-sm text-white/35">Searching Nitra…</div>}
               {!loading && query.length >= 2 && users.length === 0 && !error && <div className="rounded-2xl border border-dashed border-white/[.08] p-8 text-center text-sm text-white/25">No Nitra users found for this search.</div>}
-              {error && <div className="rounded-2xl border border-red-400/10 bg-red-400/[.04] p-5 text-sm text-red-200/70">{error}<p className="mt-1 text-xs text-white/20">Check your MONGODB_URI and make sure the database is reachable.</p></div>}
+              {error && <div className="rounded-2xl border border-red-400/10 bg-red-400/[.04] p-5 text-sm text-red-200/70">{error}</div>}
               {query.length < 2 && <div className="rounded-2xl border border-white/[.06] bg-white/[.02] p-8 text-center text-sm text-white/20">Type at least 2 characters to search.</div>}
             </div>
           </div>
 
           <aside className="space-y-4">
             <div className="rounded-3xl border border-white/[.07] bg-white/[.035] p-6 backdrop-blur-xl">
-              <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300"><Database size={18} /></div><div><p className="text-sm font-semibold">Phase 5 live surface</p><p className="text-xs text-white/25">MongoDB → Next.js API → UI</p></div></div>
-              <div className="mt-6 space-y-3 text-xs text-white/35"><div className="flex justify-between"><span>User model</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>Registration API</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>User search API</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>Conversation persistence</span><span className="text-white/25">Next</span></div></div>
+              <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300"><Database size={18} /></div><div><p className="text-sm font-semibold">Firebase data layer</p><p className="text-xs text-white/25">Auth → Firestore → UI</p></div></div>
+              <div className="mt-6 space-y-3 text-xs text-white/35"><div className="flex justify-between"><span>User profiles</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>User search</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>Direct conversations</span><span className="text-emerald-300/70">Ready</span></div><div className="flex justify-between"><span>Realtime messages</span><span className="text-emerald-300/70">Ready</span></div></div>
             </div>
 
             {currentUser && <div className="rounded-3xl border border-white/[.07] bg-gradient-to-br from-white/[.06] to-white/[.02] p-6"><p className="text-[10px] uppercase tracking-[.2em] text-white/25">Your Nitra identity</p><div className="mt-5 flex items-center gap-3"><Avatar initials={currentUser.initials} /><div className="min-w-0"><p className="truncate font-semibold">{currentUser.name}</p><p className="truncate text-xs text-cyan-300/55">{currentUser.nitraId}</p></div></div><Link href="/profile" className="mt-5 flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[.08] bg-white/[.025] text-xs text-white/55 transition hover:bg-white/[.06] hover:text-white"><MessageCircle size={14} /> Open profile</Link></div>}
@@ -138,7 +147,7 @@ export default function ConnectionsPage() {
           <motion.div initial={{ opacity: 0, y: 18, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 18 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl border border-white/[.09] bg-[#11131a] p-6 shadow-2xl">
             <div className="flex items-start justify-between"><div className="flex items-center gap-3"><Avatar initials={selected.initials} /><div><p className="font-semibold">{selected.name}</p><p className="text-xs text-cyan-300/55">{selected.nitraId}</p></div></div><button onClick={() => setSelected(null)} className="text-white/25 hover:text-white" aria-label="Close"><X size={18} /></button></div>
             <p className="mt-6 text-sm leading-6 text-white/40">{selected.bio || selected.status || "Nitra user"}</p>
-            <button onClick={() => alert("Conversation creation will connect to the conversation API in the next database step.")} className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-black hover:bg-white/90"><MessageCircle size={16} /> Start conversation</button>
+            <button disabled={creating} onClick={() => startConversation(selected)} className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-60"><MessageCircle size={16} /> {creating ? "Creating…" : "Start conversation"}</button>
           </motion.div>
         </motion.div>}
       </AnimatePresence>
