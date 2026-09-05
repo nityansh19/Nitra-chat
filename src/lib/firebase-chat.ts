@@ -115,14 +115,14 @@ export async function findOrCreateDirectConversation(uid: string, otherUid: stri
   const existing = await getDocs(
     query(
       conversationsRef,
-      where("type", "==", "direct"),
       where("participantIds", "array-contains", uid),
       limit(50),
     ),
   );
   const match = existing.docs.find((item) => {
-    const participants = (item.data().participantIds || []) as string[];
-    return participants.length === 2 && participants.includes(otherUid);
+    const data = item.data();
+    const participants = (data.participantIds || []) as string[];
+    return data.type === "direct" && participants.length === 2 && participants.includes(otherUid);
   });
 
   if (match) return match.id;
