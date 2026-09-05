@@ -6,32 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Fix nullable profile type
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path("src/app/connections/page.tsx")
-          s = p.read_text()
-          old = 'setProfiles((prev) => ({ ...prev, ...Object.fromEntries(entries.filter(([, profile]) => profile)) }));'
-          new = 'setProfiles((prev) => ({ ...prev, ...Object.fromEntries(entries.filter(([, profile]): profile is UserProfile => profile !== null)) }));'
-          if old not in s:
-              raise SystemExit("Target line not found; refusing to change anything")
-          p.write_text(s.replace(old, new, 1))
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/app/connections/page.tsx
-          if ! git diff --cached --quiet; then git commit -m "Fix nullable profile type in connections" && git push; fi
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
