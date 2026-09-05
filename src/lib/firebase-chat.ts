@@ -198,13 +198,27 @@ export async function sendMessage(
 }
 
 export function mapFirestoreError(error: unknown) {
-  const code = (error as { code?: string })?.code;
+  const code = (error as { code?: string })?.code || "";
   const messages: Record<string, string> = {
-    "auth/email-already-in-use": "That email is already registered.",
+    "auth/email-already-in-use": "That email is already registered. Try signing in instead.",
     "auth/invalid-credential": "Incorrect email or password.",
     "auth/invalid-email": "Enter a valid email address.",
     "auth/weak-password": "Password must contain at least 8 characters.",
-    "permission-denied": "Firebase denied this action. Check Firestore rules.",
+    "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase yet. Enable it under Authentication → Sign-in method → Email/Password.",
+    "auth/configuration-not-found": "Firebase Authentication is not configured for this project. Check Authentication → Sign-in method in Firebase.",
+    "auth/invalid-api-key": "Firebase is missing its web configuration. Check the NEXT_PUBLIC_FIREBASE_* variables in Vercel.",
+    "auth/network-request-failed": "Firebase could not be reached. Check your internet connection and try again.",
+    "permission-denied": "Firebase Authentication worked, but Firestore denied the profile write. Publish the Firestore rules for this project.",
+    "failed-precondition": "Firestore needs to be configured before Nitra can create your profile. Check the Firestore database and indexes.",
+    "unavailable": "Firebase is temporarily unavailable. Please try again in a moment.",
   };
-  return (code && messages[code]) || "Something went wrong. Please try again.";
+
+  if (code && messages[code]) return messages[code];
+
+  const message = (error as { message?: string })?.message;
+  if (message?.toLowerCase().includes("missing or insufficient permissions")) {
+    return "Firebase Authentication worked, but Firestore denied the profile write. Publish the Firestore rules for this project.";
+  }
+
+  return "Something went wrong while creating your Nitra ID. Please try again.";
 }
