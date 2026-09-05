@@ -14,7 +14,7 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getFirebaseDb } from "./firebase";
+import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 
 export type UserProfile = {
   uid: string;
@@ -139,6 +139,22 @@ export async function getFriendRequestBetween(uid: string, otherUid: string): Pr
 }
 
 export async function sendFriendRequest(senderId: string, receiverId: string) {
+  const authUser = getFirebaseAuth().currentUser;
+  if (!authUser) {
+    const error = new Error("You are not signed in to Firebase.") as Error & { code?: string };
+    error.code = "auth/not-signed-in";
+    throw error;
+  }
+
+  // Never trust a UID stored in localStorage for a Firestore write. Firebase
+  // Security Rules validate request.auth.uid, so the sender must be the
+  // currently authenticated Firebase user.
+  if (authUser.uid !== senderId) {
+    const error = new Error("Your Nitra session is out of sync. Please sign in again.") as Error & { code?: string };
+    error.code = "auth/session-mismatch";
+    throw error;
+  }
+
   if (senderId === receiverId) throw new Error("You cannot add yourself.");
   const existing = await getFriendRequestBetween(senderId, receiverId);
   if (existing?.status === "accepted") return existing.id;
@@ -257,6 +273,8 @@ export function mapFirestoreError(error: unknown) {
     "auth/too-many-requests": "Firebase temporarily blocked more requests from this device. Wait a little and try again.",
     "auth/quota-exceeded": "Firebase authentication quota was exceeded. Try again later.",
     "auth/web-storage-unsupported": "This browser cannot store the Firebase session. Try Chrome or another browser with site storage enabled.",
+    "auth/not-signed-in": "Your Firebase session is missing. Sign out and sign in again, then try adding the friend.",
+    "auth/session-mismatch": "Your Nitra session is out of sync with Firebase. Sign out and sign in again, then try adding the friend.",
     "permission-denied": "Firebase Authentication worked, but Firestore denied the request. Publish the Firestore rules for this project.",
     "failed-precondition": "Firestore needs an index or configuration update. Check the Firestore console.",
     "unavailable": "Firebase is temporarily unavailable. Please try again in a moment.",
