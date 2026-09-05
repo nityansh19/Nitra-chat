@@ -5,68 +5,234 @@
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-html { scroll-behavior: smooth; }
+html { background: #07080c; }
 body {
   margin: 0;
-  background: #07080c;
+  background: #08090d;
   color: #f5f7fb;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 button, input, textarea { font: inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: default; }
-button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid rgba(196,181,253,.45); outline-offset: 2px; }
-::selection { background: rgba(167,139,250,.28); }
+button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid rgba(255,255,255,.35); outline-offset: 2px; }
+::selection { background: rgba(140,160,255,.28); }
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
 
 .glass {
-  background: linear-gradient(145deg, rgba(20,22,30,.78), rgba(12,14,20,.70));
+  background: rgba(16,18,25,.72);
   border: 1px solid rgba(255,255,255,.075);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 20px 60px rgba(0,0,0,.16);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
 }
 
-.noise-bg { isolation: isolate; }
+.noise::before,
 .noise-bg::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 100;
-  opacity: .022;
+  z-index: 200;
+  opacity: .025;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
 }
 
 .text-gradient {
-  background: linear-gradient(100deg, #fff 5%, #c4b5fd 48%, #67e8f9 100%);
+  background: linear-gradient(100deg, #fff 5%, rgba(255,255,255,.45) 48%, rgba(147,197,253,.72));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .gif-sheen {
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.08) 45%, transparent 65%);
-  transform: translateX(-110%);
-  animation: gifSheen 2.8s ease-in-out infinite;
+  background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.08) 45%, transparent 70%);
+  background-size: 220% 100%;
+  animation: gif-sheen 2.8s ease-in-out infinite;
+}
+@keyframes gif-sheen {
+  0%, 45% { background-position: 180% 0; }
+  75%, 100% { background-position: -40% 0; }
 }
 
-@keyframes gifSheen {
-  0%, 45% { transform: translateX(-110%); }
-  75%, 100% { transform: translateX(110%); }
+textarea { scrollbar-width: thin; }
+
+@media (min-width: 901px) {
+  .desktop-rail { display: flex; }
 }
 
-@media (max-width: 900px) {
-  .desktop-rail { display: none !important; }
+@media (max-width: 1200px) {
   .details-panel { display: none !important; }
 }
 
-@media (max-width: 640px) {
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
+/* Mobile becomes a focused, native-feeling single-panel chat. */
+@media (max-width: 767px) {
+  html, body { width: 100%; min-width: 0; overflow: hidden; }
+  body { overscroll-behavior: none; }
+
+  main.relative.h-\[100dvh\] {
+    height: 100dvh;
+    min-height: 100dvh;
+    width: 100%;
+  }
+
+  .noise-bg::before { opacity: .018; }
+
+  /* Remove desktop gutters and rounded outer cards on phones. */
+  main.relative.h-\[100dvh\] > .relative.flex.h-full {
+    padding: 0 !important;
+  }
+  main.relative.h-\[100dvh\] > .relative.flex.h-full > section.glass.relative {
+    margin-left: 0 !important;
+    border-radius: 0 !important;
+    border-left: 0;
+    border-right: 0;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Mobile conversation list is a full-screen sheet. */
+  main.relative.h-\[100dvh\] section.glass.ml-2.fixed {
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Compact mobile header with touch-friendly controls. */
+  main.relative.h-\[100dvh\] header {
+    min-height: 62px;
+    height: 62px;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    gap: 8px;
+  }
+  main.relative.h-\[100dvh\] header > .flex.items-center.gap-0\.5 { gap: 0; }
+  main.relative.h-\[100dvh\] header > .flex.items-center.gap-0\.5 > button:nth-child(2),
+  main.relative.h-\[100dvh\] header > .flex.items-center.gap-0\.5 > button:nth-child(3) {
+    display: none;
+  }
+  main.relative.h-\[100dvh\] header .h-9.w-9 {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Message area uses the whole screen and scrolls smoothly on touch. */
+  main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 {
+    padding: 16px 12px 20px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 > div.mx-auto {
+    width: 100%;
+    max-width: none;
+  }
+  main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 .mb-10.text-center {
+    margin-bottom: 28px;
+  }
+  main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 .mb-10.text-center .h-20.w-20 {
+    width: 64px;
+    height: 64px;
+    font-size: 16px;
+  }
+
+  /* Keep bubbles readable without eating the entire viewport. */
+  main.relative.h-\[100dvh\] .max-w-\[86\%\] { max-width: 88%; }
+  main.relative.h-\[100dvh\] .max-w-\[86\%\] > .relative > div.rounded-\[20px\] {
+    padding: 10px 13px;
+    border-radius: 18px;
+  }
+
+  /* Hover-only desktop message actions don't belong on touch screens. */
+  main.relative.h-\[100dvh\] .group > .relative > .group-hover\:flex {
+    display: none !important;
+  }
+
+  /* Composer stays above the iOS/Android home indicator. */
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding-top: 4px;
+    background: linear-gradient(to top, rgba(7,8,12,.98), rgba(7,8,12,.72), transparent);
+  }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 > .mx-auto { max-width: none; }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .relative.rounded-2xl {
+    border-radius: 18px;
+    background: rgba(20,22,30,.92);
+  }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 textarea {
+    min-height: 42px;
+    max-height: 120px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    font-size: 16px;
+    line-height: 22px;
+  }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .h-9.w-9 {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+  }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .mt-2 { display: none; }
+
+  /* Emoji/GIF picker remains inside the viewport. */
+  main.relative.h-\[100dvh\] .absolute.bottom-14.left-0 {
+    left: 0;
+    bottom: calc(100% + 8px);
+    width: min(360px, calc(100vw - 20px));
+    max-height: min(62dvh, 460px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  main.relative.h-\[100dvh\] .absolute.bottom-14.left-0 .grid.grid-cols-8 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  /* Dialogs fit small screens instead of overflowing vertically. */
+  .fixed.inset-0.z-50,
+  .fixed.inset-0.z-\[70\] {
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .fixed.inset-0.z-50 > .w-full.max-w-lg,
+  .fixed.inset-0.z-\[70\] > .mx-auto.mt-\[10vh\].w-full.max-w-2xl,
+  .fixed.inset-0.z-\[70\] > .w-full.max-w-md {
+    border-radius: 22px;
+    max-height: calc(100dvh - 24px);
+  }
+  .fixed.inset-0.z-\[70\] > .mx-auto.mt-\[10vh\].w-full.max-w-2xl { margin-top: 6vh; }
+
+  /* Toast stays above the safe-area inset. */
+  .fixed.bottom-5.left-1\/2 {
+    bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px));
+    max-width: calc(100vw - 24px);
+  }
+
+  /* Auth card is scrollable and comfortable on narrow screens. */
+  main.noise-bg > .relative.z-10.grid.w-full.max-w-6xl {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    border-radius: 24px;
+  }
+  main.noise-bg > .relative.z-10.grid.w-full.max-w-6xl > section:last-child {
+    padding: 24px 20px max(24px, env(safe-area-inset-bottom));
+  }
+  main.noise-bg input { font-size: 16px; }
+}
+
+@media (max-width: 380px) {
+  main.relative.h-\[100dvh\] header .h-9.w-9 { width: 36px; height: 36px; }
+  main.relative.h-\[100dvh\] header .h-11.w-11 { width: 38px; height: 38px; }
+  main.relative.h-\[100dvh\] .max-w-\[86\%\] { max-width: 91%; }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .flex.items-center.gap-0\.5:first-child { display: none; }
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 textarea { padding-left: 8px; padding-right: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
