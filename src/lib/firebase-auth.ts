@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -36,26 +37,37 @@ export async function registerWithFirebase(input: {
 }): Promise<UserProfile> {
   const auth = getFirebaseAuth();
   const credential = await createUserWithEmailAndPassword(auth, input.email.trim(), input.password);
-  await updateProfile(credential.user, { displayName: input.name.trim() });
 
-  const profile: UserProfile = {
-    uid: credential.user.uid,
-    name: input.name.trim(),
-    email: input.email.trim().toLowerCase(),
-    phone: input.phone.trim(),
-    nitraId: makeNitraId(input.name),
-    initials: initialsFromName(input.name),
-    bio: "",
-    status: "Available",
-    avatarUrl: "",
-    role: "",
-    location: "",
-    website: "",
-    privacy: { showEmail: false, showPhone: false },
-  };
+  try {
+    await updateProfile(credential.user, { displayName: input.name.trim() });
 
-  await createUserProfile(profile);
-  return profile;
+    const profile: UserProfile = {
+      uid: credential.user.uid,
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      phone: input.phone.trim(),
+      nitraId: makeNitraId(input.name),
+      initials: initialsFromName(input.name),
+      bio: "",
+      status: "Available",
+      avatarUrl: "",
+      role: "",
+      location: "",
+      website: "",
+      privacy: { showEmail: false, showPhone: false },
+    };
+
+    await createUserProfile(profile);
+    return profile;
+  } catch (error) {
+    // Avoid leaving an Auth account behind when the Firestore profile cannot be created.
+    try {
+      await deleteUser(credential.user);
+    } catch {
+      // Keep the original error; a failed cleanup should not hide the real problem.
+    }
+    throw error;
+  }
 }
 
 export async function loginWithFirebase(email: string, password: string): Promise<UserProfile> {
