@@ -2,28 +2,25 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import {
-  Archive, ArrowLeft, Bell, CheckCheck, ChevronDown, CircleHelp, FileText,
-  Hash, Image as ImageIcon, Info, Menu, MessageCircle, MoreHorizontal,
-  Paperclip, PenLine, Phone, Plus, Search, Send, Settings, Smile, Sparkles,
-  Users, Video, X
+  ArrowLeft, Bell, CheckCheck, ChevronDown, Image as ImageIcon, Info,
+  Menu, MessageCircle, MoreHorizontal, Paperclip, Phone, Plus, Search,
+  Send, Settings, Smile, Sparkles, Users, Video, X
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-type Conversation = {
-  id: string; name: string; initials: string; preview: string; time: string;
-  unread: number; online?: boolean; group?: boolean; accent: string;
-};
+type User = { name: string; email: string; phone: string; id: string; initials: string };
+type Conversation = { id: string; name: string; initials: string; preview: string; time: string; unread: number; online?: boolean; accent: string };
 type Message = { id: number; from: "me" | "them"; text: string; time: string; reactions?: string[] };
 
-const conversations: Conversation[] = [
+const seedChats: Conversation[] = [
   { id: "maya", name: "Maya Chen", initials: "MC", preview: "That new flow looks really good.", time: "2m", unread: 2, online: true, accent: "from-violet-400 to-fuchsia-400" },
-  { id: "dev", name: "Nitra Dev Team", initials: "ND", preview: "Arjun: pushed the websocket draft", time: "18m", unread: 7, group: true, accent: "from-cyan-400 to-blue-500" },
+  { id: "dev", name: "Nitra Dev Team", initials: "ND", preview: "Arjun: pushed the websocket draft", time: "18m", unread: 7, accent: "from-cyan-400 to-blue-500" },
   { id: "alex", name: "Alex Morgan", initials: "AM", preview: "Can you review this when free?", time: "1h", unread: 0, online: true, accent: "from-amber-300 to-orange-500" },
-  { id: "design", name: "Design Studio", initials: "DS", preview: "You: Let's keep the motion subtle", time: "3h", unread: 0, group: true, accent: "from-rose-400 to-red-500" },
+  { id: "design", name: "Design Studio", initials: "DS", preview: "You: Let's keep the motion subtle", time: "3h", unread: 0, accent: "from-rose-400 to-red-500" },
   { id: "sam", name: "Sam Rivera", initials: "SR", preview: "Voice message", time: "Yesterday", unread: 0, accent: "from-emerald-300 to-teal-500" }
 ];
 
-const seed: Message[] = [
+const seedMessages: Message[] = [
   { id: 1, from: "them", text: "Hey! I just checked the latest Nitra flow.", time: "6:42 PM" },
   { id: 2, from: "me", text: "Nice. I was trying to make the workspace feel less like a clone and more like a real product.", time: "6:43 PM" },
   { id: 3, from: "them", text: "That new flow looks really good. The transitions make it feel alive without being distracting.", time: "6:44 PM", reactions: ["✨ 2"] },
@@ -31,15 +28,10 @@ const seed: Message[] = [
   { id: 5, from: "them", text: "Love it. Keep the composer simple too — the context should stay in the conversation.", time: "6:46 PM" }
 ];
 
-const replies = [
-  "Absolutely — I'm on it.",
-  "Yep, that makes sense. Let's keep it clean.",
-  "Nice. I'll take a look and get back to you.",
-  "That's the direction I had in mind too."
-];
+const replies = ["Absolutely — I'm on it.", "Yep, that makes sense. Let's keep it clean.", "Nice. I'll take a look and get back to you.", "That's the direction I had in mind too."];
 
 function Avatar({ initials, online, accent = "from-indigo-400 to-cyan-400", size = "md" }: { initials: string; online?: boolean; accent?: string; size?: "sm" | "md" | "lg" }) {
-  const sizes = { sm: "h-8 w-8 text-[10px]", md: "h-10 w-10 text-xs", lg: "h-16 w-16 text-lg" };
+  const sizes = { sm: "h-8 w-8 text-[10px]", md: "h-10 w-10 text-xs", lg: "h-20 w-20 text-xl" };
   return <div className={`relative shrink-0 rounded-2xl bg-gradient-to-br ${accent} p-[1px] ${sizes[size]}`}><div className="flex h-full w-full items-center justify-center rounded-[calc(1rem-1px)] bg-[#11131a] font-semibold text-white/90">{initials}</div>{online && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0d0f14] bg-emerald-400" />}</div>;
 }
 
@@ -47,134 +39,126 @@ function IconButton({ children, label, onClick, active = false }: { children: Re
   return <button onClick={onClick} aria-label={label} title={label} className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${active ? "bg-white/[.09] text-white" : "text-white/45 hover:bg-white/[.06] hover:text-white"}`}>{children}</button>;
 }
 
-function RailButton({ children, active, label, onClick, badge }: { children: React.ReactNode; active?: boolean; label: string; onClick?: () => void; badge?: number }) {
-  return <button onClick={onClick} title={label} aria-label={label} className={`relative flex h-11 w-11 items-center justify-center rounded-2xl transition ${active ? "bg-white/[.1] text-white shadow-glow" : "text-white/35 hover:bg-white/[.06] hover:text-white/80"}`}>{children}{badge ? <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[9px] font-bold text-black">{badge}</span> : null}{active && <span className="absolute -left-3 h-5 w-1 rounded-r-full bg-white" />}</button>;
-}
+function AuthScreen({ onLogin }: { onLogin: (user: User) => void }) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
+  const [error, setError] = useState("");
 
-export default function Home() {
-  const [active, setActive] = useState("maya");
-  const [query, setQuery] = useState("");
-  const [message, setMessage] = useState("");
-  const [messagesByChat, setMessagesByChat] = useState<Record<string, Message[]>>({ maya: seed });
-  const [unread, setUnread] = useState<Record<string, number>>({ maya: 2, dev: 7 });
-  const [showMobileList, setShowMobileList] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
-  const [showCommand, setShowCommand] = useState(false);
-  const [showEmoji, setShowEmoji] = useState(false);
-  const [menuId, setMenuId] = useState<number | null>(null);
-  const [typing, setTyping] = useState(false);
-  const [toast, setToast] = useState("");
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
-  const current = conversations.find(c => c.id === active) ?? conversations[0];
-  const messages = messagesByChat[active] ?? [];
-  const filtered = useMemo(() => conversations.filter(c => `${c.name} ${c.preview}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  function update(key: keyof typeof form, value: string) { setForm(prev => ({ ...prev, [key]: value })); setError(""); }
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); setShowCommand(v => !v); }
-      if (e.key === "Escape") { setShowCommand(false); setShowEmoji(false); setMenuId(null); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
-  useEffect(() => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length, typing]);
-
-  function notify(text: string) {
-    setToast(text);
-    window.setTimeout(() => setToast(""), 1800);
+  function makeUser() {
+    const clean = form.name.trim();
+    const initials = clean.split(/\s+/).map(p => p[0]).join("").slice(0, 2).toUpperCase() || "NC";
+    const base = clean.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 12) || "user";
+    return { name: clean, email: form.email.trim().toLowerCase(), phone: form.phone.trim(), id: `@${base}_${Math.floor(1000 + Math.random() * 9000)}`, initials };
   }
 
-  function openChat(id: string) {
-    setActive(id);
-    setUnread(prev => ({ ...prev, [id]: 0 }));
-    setShowMobileList(false);
-    setMenuId(null);
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (mode === "register") {
+      if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password) return setError("Fill in all required fields.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setError("Enter a valid email address.");
+      if (form.phone.replace(/\D/g, "").length < 10) return setError("Enter a valid phone number.");
+      if (form.password.length < 6) return setError("Password must be at least 6 characters.");
+      if (form.password !== form.confirm) return setError("Passwords do not match.");
+      const user = makeUser();
+      localStorage.setItem("nitra-demo-user", JSON.stringify(user));
+      localStorage.setItem("nitra-demo-registered", "true");
+      onLogin(user);
+      return;
+    }
+    if (!form.email.trim() || !form.password) return setError("Enter your email/phone and password.");
+    const saved = localStorage.getItem("nitra-demo-user");
+    if (saved) onLogin(JSON.parse(saved));
+    else onLogin({ name: "Nitra User", email: form.email.trim(), phone: "", id: "@nitra_user", initials: "NU" });
   }
 
-  function sendMessage() {
-    const value = message.trim();
-    if (!value) return;
-    const newMessage: Message = { id: Date.now(), from: "me", text: value, time: "now" };
-    setMessagesByChat(prev => ({ ...prev, [active]: [...(prev[active] ?? []), newMessage] }));
-    setMessage("");
-    setReplyTo(null);
-    setTyping(true);
-    window.setTimeout(() => {
-      setTyping(false);
-      const reply: Message = { id: Date.now() + 1, from: "them", text: replies[Math.floor(Math.random() * replies.length)], time: "now" };
-      setMessagesByChat(prev => ({ ...prev, [active]: [...(prev[active] ?? []), reply] }));
-    }, 1200);
-  }
-
-  function reactTo(id: number, emoji: string) {
-    setMessagesByChat(prev => ({ ...prev, [active]: (prev[active] ?? []).map(m => m.id === id ? { ...m, reactions: [...(m.reactions ?? []), `${emoji} 1`] } : m) }));
-    setMenuId(null);
-  }
-
-  function deleteMessage(id: number) {
-    setMessagesByChat(prev => ({ ...prev, [active]: (prev[active] ?? []).filter(m => m.id !== id) }));
-    setMenuId(null);
-    notify("Message removed");
-  }
-
-  function newMessage() {
-    setActive("maya");
-    setUnread({});
-    setShowCommand(false);
-    setShowMobileList(false);
-    window.setTimeout(() => inputRef.current?.focus(), 100);
-  }
-
-  return <main className="noise flex h-screen overflow-hidden bg-[#08090d] text-white" onClick={() => menuId !== null && setMenuId(null)}>
-    <aside className="desktop-rail glass relative z-20 flex w-[76px] flex-col items-center justify-between border-y-0 border-l-0 px-3 py-5">
-      <div className="flex flex-col items-center gap-4">
-        <motion.div whileHover={{ rotate: 8, scale: 1.05 }} className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-black shadow-glow"><MessageCircle size={21} strokeWidth={2.5} /></motion.div>
-        <RailButton active label="Chats" onClick={() => setActive("maya")}><MessageCircle size={20} /></RailButton>
-        <RailButton label="People" onClick={() => notify("People is coming in Phase 3")}><Users size={20} /></RailButton>
-        <RailButton label="Saved" onClick={() => notify("Saved messages are coming soon")}><Archive size={20} /></RailButton>
-        <RailButton label="Notifications" badge={7} onClick={() => notify("You're all caught up")}><Bell size={20} /></RailButton>
-      </div>
-      <div className="flex flex-col items-center gap-3"><RailButton label="Settings" onClick={() => notify("Settings will be connected to your profile later")}><Settings size={19} /></RailButton><Avatar initials="NR" accent="from-indigo-400 to-violet-500" /></div>
-    </aside>
-
-    <AnimatePresence>{showMobileList && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowMobileList(false)} className="fixed inset-0 z-30 bg-black/60 lg:hidden" />}</AnimatePresence>
-
-    <aside className={`absolute inset-y-0 left-0 z-40 flex w-[330px] flex-col border-r border-white/[.07] bg-[#0c0e13] transition-transform lg:relative lg:z-10 lg:flex ${showMobileList ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-      <div className="flex items-center justify-between px-5 pb-4 pt-6"><div><p className="text-[11px] font-medium uppercase tracking-[.22em] text-white/30">Workspace</p><h1 className="mt-1 text-xl font-semibold tracking-tight">Messages</h1></div><div className="flex gap-1"><IconButton label="New message" onClick={newMessage}><PenLine size={18} /></IconButton><IconButton label="Close" onClick={() => setShowMobileList(false)}><X size={18} /></IconButton></div></div>
-      <div className="px-4 pb-4"><button onClick={() => setShowCommand(true)} className="flex h-10 w-full items-center gap-2 rounded-xl border border-white/[.07] bg-white/[.035] px-3 text-left"><Search size={16} className="text-white/30" /><span className="flex-1 text-sm text-white/25">Search conversations</span><kbd className="rounded-md bg-white/[.06] px-1.5 py-0.5 text-[10px] text-white/25">⌘ K</kbd></button></div>
-      <div className="flex-1 overflow-y-auto px-2"><div className="mb-2 flex items-center justify-between px-3"><span className="text-[10px] font-semibold uppercase tracking-[.18em] text-white/25">Recent</span><button onClick={() => notify("Multi-select mode is coming soon")} className="text-xs text-white/25 hover:text-white/60">Edit</button></div>{filtered.length ? filtered.map(c => <motion.button layout key={c.id} onClick={() => openChat(c.id)} className={`group mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${active === c.id ? "bg-white/[.075]" : "hover:bg-white/[.04]"}`}><Avatar initials={c.initials} online={c.online} accent={c.accent} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className={`truncate text-sm font-medium ${active === c.id ? "text-white" : "text-white/75"}`}>{c.name}</span><span className="shrink-0 text-[10px] text-white/25">{c.time}</span></span><span className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-xs text-white/30">{c.preview}</span>{unread[c.id] ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-black">{unread[c.id]}</span> : null}</span></span></motion.button>) : <div className="px-4 py-12 text-center"><Search size={22} className="mx-auto text-white/15" /><p className="mt-3 text-sm text-white/35">No conversations found</p><p className="mt-1 text-xs text-white/20">Try another name or keyword.</p></div>}</div>
-      <div className="border-t border-white/[.06] p-4"><button onClick={() => notify("Profile settings are coming soon")} className="flex w-full items-center gap-3 rounded-2xl bg-white/[.035] p-3 text-left transition hover:bg-white/[.06]"><Avatar initials="NR" accent="from-indigo-400 to-violet-500" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">Nityansh</p><p className="flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Available</p></div><MoreHorizontal size={17} className="text-white/25" /></button></div>
-    </aside>
-
-    <section className="relative flex min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_50%_-20%,rgba(115,130,255,.08),transparent_45%)]">
-      <header className="glass flex h-[72px] shrink-0 items-center justify-between border-x-0 border-t-0 px-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><IconButton label="Open conversations" onClick={() => setShowMobileList(true)}><Menu size={20} /></IconButton><Avatar initials={current.initials} online={current.online} accent={current.accent} /><div className="min-w-0"><h2 className="truncate text-sm font-semibold">{current.name}</h2><p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/30">{current.online ? <><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Active now</> : "Last seen recently"}</p></div></div><div className="flex items-center gap-1"><IconButton label="Search in chat" onClick={() => setShowCommand(true)}><Search size={18} /></IconButton><IconButton label="Start call" onClick={() => notify("Voice calling will connect in the real-time phase")}><Phone size={18} /></IconButton><IconButton label="Start video call" onClick={() => notify("Video calling will connect in the real-time phase")}><Video size={18} /></IconButton><IconButton label="Chat info" active={showDetails} onClick={() => setShowDetails(v => !v)}><Info size={18} /></IconButton></div></header>
-
-      <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-3xl flex-col"><div className="mb-8 flex items-center justify-center gap-3 text-[10px] uppercase tracking-[.2em] text-white/20"><span className="h-px flex-1 bg-white/[.06]" />Today<span className="h-px flex-1 bg-white/[.06]" /></div>
-        <AnimatePresence initial={false}>{messages.map((m, i) => <motion.div key={m.id} initial={{ opacity: 0, y: 12, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: .25 }} className={`mb-4 flex ${m.from === "me" ? "justify-end" : "justify-start"}`}><div className={`relative flex max-w-[82%] flex-col sm:max-w-[70%] ${m.from === "me" ? "items-end" : "items-start"}`}><div className="relative"><div onContextMenu={e => { e.preventDefault(); setMenuId(m.id); }} className={`rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${m.from === "me" ? "rounded-br-md bg-white text-[#0a0b0e]" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}>{m.text}</div><motion.button initial={{ opacity: 0, scale: .8 }} animate={{ opacity: 1, scale: 1 }} onClick={() => setMenuId(menuId === m.id ? null : m.id)} className="absolute -right-8 top-1/2 hidden -translate-y-1/2 rounded-lg p-1.5 text-white/25 transition hover:bg-white/[.06] hover:text-white group-hover:block sm:block" aria-label="Message actions"><MoreHorizontal size={14} /></motion.button>{menuId === m.id && <div onClick={e => e.stopPropagation()} className={`absolute z-20 top-8 w-36 rounded-xl border border-white/[.08] bg-[#151821] p-1.5 shadow-2xl ${m.from === "me" ? "right-0" : "left-0"}`}><button onClick={() => { setReplyTo(m); setMenuId(null); inputRef.current?.focus(); }} className="flex w-full rounded-lg px-3 py-2 text-left text-xs text-white/65 hover:bg-white/[.06]">Reply</button><button onClick={() => reactTo(m.id, "❤️")} className="flex w-full rounded-lg px-3 py-2 text-left text-xs text-white/65 hover:bg-white/[.06]">React ❤️</button>{m.from === "me" && <button onClick={() => deleteMessage(m.id)} className="flex w-full rounded-lg px-3 py-2 text-left text-xs text-red-300/80 hover:bg-white/[.06]">Delete</button>}</div>}</div><div className={`mt-1.5 flex items-center gap-1.5 px-1 text-[10px] text-white/20 ${m.from === "me" ? "justify-end" : ""}`}>{m.time}{m.from === "me" && <CheckCheck size={12} />}</div>{m.reactions?.length ? <div className="mt-1 flex gap-1">{m.reactions.map((r, ri) => <button key={ri} onClick={() => reactTo(m.id, "✨")} className="rounded-full border border-white/[.08] bg-white/[.04] px-2 py-0.5 text-[10px] text-white/45 hover:bg-white/[.08]">{r}</button>)}</div> : null}</div></motion.div>)}</AnimatePresence>
-        <AnimatePresence>{typing && <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-4 flex"><div className="flex items-center gap-1 rounded-2xl rounded-bl-md border border-white/[.07] bg-white/[.045] px-4 py-3"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40 [animation-delay:-.2s]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40 [animation-delay:-.1s]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40" /></div></motion.div>}</AnimatePresence></div></div>
-
-      <div className="px-3 pb-4 sm:px-6 sm:pb-6"><div className="mx-auto max-w-3xl">{replyTo && <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mb-2 flex items-center gap-2 rounded-xl border border-white/[.06] bg-white/[.035] px-3 py-2"><div className="h-7 w-0.5 rounded-full bg-white/50" /><div className="min-w-0 flex-1"><p className="text-[10px] font-medium text-white/45">Replying to {current.name}</p><p className="truncate text-xs text-white/25">{replyTo.text}</p></div><button onClick={() => setReplyTo(null)} className="text-white/25 hover:text-white"><X size={14} /></button></motion.div>}
-        <div className="glass relative flex items-end gap-2 rounded-2xl p-2 shadow-glow"><div className="flex pb-1"><IconButton label="Attach file" onClick={() => notify("File attachments will be wired to storage later")}><Paperclip size={18} /></IconButton><IconButton label="Add image" onClick={() => notify("Media uploads will be wired in the media phase")}><ImageIcon size={18} /></IconButton></div><textarea ref={inputRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} rows={1} placeholder="Write a message..." className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm text-white outline-none placeholder:text-white/25" /><div className="relative flex items-center gap-1 pb-1"><IconButton label="Emoji" active={showEmoji} onClick={() => setShowEmoji(v => !v)}><Smile size={18} /></IconButton>{showEmoji && <motion.div initial={{ opacity: 0, y: 8, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="absolute bottom-12 right-0 grid w-44 grid-cols-6 gap-1 rounded-2xl border border-white/[.08] bg-[#151821] p-2 shadow-2xl">{["😀","😂","😍","🔥","✨","👍","❤️","🎉","🚀","😎","🤝","💡"].map(emoji => <button key={emoji} onClick={() => { setMessage(v => v + emoji); setShowEmoji(false); inputRef.current?.focus(); }} className="rounded-lg p-2 text-lg hover:bg-white/[.06]">{emoji}</button>)}</motion.div>}<motion.button whileTap={{ scale: .9 }} onClick={sendMessage} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30" disabled={!message.trim()} aria-label="Send message"><Send size={17} /></motion.button></div></div><p className="mt-2 hidden text-center text-[10px] text-white/15 sm:block">Enter to send · Shift + Enter for a new line</p></div></div>
-    </section>
-
-    <AnimatePresence>{showDetails && <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 285, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="details-panel hidden shrink-0 overflow-hidden border-l border-white/[.07] bg-[#0b0d12] xl:block"><div className="w-[285px] px-5 py-7"><div className="flex flex-col items-center text-center"><Avatar initials={current.initials} online={current.online} accent={current.accent} size="lg" /><h3 className="mt-4 text-base font-semibold">{current.name}</h3><p className="mt-1 text-xs text-white/30">@{current.id}</p><div className="mt-5 flex gap-2"><button onClick={() => notify("Profile preview coming soon")} className="rounded-xl bg-white/[.06] px-4 py-2 text-xs text-white/70 hover:bg-white/[.1]">Profile</button><button onClick={() => notify("Conversation muted")} className="rounded-xl bg-white/[.06] px-4 py-2 text-xs text-white/70 hover:bg-white/[.1]">Mute</button></div></div><div className="my-7 h-px bg-white/[.06]" /><p className="mb-3 text-[10px] font-semibold uppercase tracking-[.18em] text-white/25">Shared space</p><div className="space-y-2"><InfoRow icon={<FileText size={15} />} title="Files" value="12 items" onClick={() => notify("Files view coming later")} /><InfoRow icon={<ImageIcon size={15} />} title="Media" value="24 items" onClick={() => notify("Media view coming later")} /><InfoRow icon={<Hash size={15} />} title="Links" value="8 links" onClick={() => notify("Links view coming later")} /></div><div className="my-7 h-px bg-white/[.06]" /><div className="rounded-2xl border border-white/[.06] bg-white/[.025] p-4"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><Sparkles size={14} className="text-white/60" />Nitra workspace</div><p className="text-[11px] leading-5 text-white/30">Phase 2 adds command search, reactions, reply actions, emoji, local chat state, keyboard shortcuts, and richer feedback.</p></div></div></motion.aside>}</AnimatePresence>
-
-    <AnimatePresence>{showCommand && <motion.div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={() => setShowCommand(false)}><motion.div initial={{ opacity: 0, y: -14, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} onMouseDown={e => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/[.1] bg-[#101219] shadow-2xl"><div className="flex items-center gap-3 border-b border-white/[.07] px-4 py-3"><Search size={18} className="text-white/30" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search people, conversations, commands..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/25" /><kbd className="rounded-md bg-white/[.06] px-2 py-1 text-[10px] text-white/30">ESC</kbd></div><div className="p-2"><p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-[.18em] text-white/20">Quick actions</p><CommandItem icon={<PenLine size={16} />} title="New message" hint="Compose" onClick={newMessage} /><CommandItem icon={<MessageCircle size={16} />} title="Open Maya Chen" hint="Chat" onClick={() => { openChat("maya"); setShowCommand(false); }} /><CommandItem icon={<CircleHelp size={16} />} title="What is Nitra?" hint="Info" onClick={() => notify("Nitra is your real-time communication workspace")}/></div></motion.div></motion.div>}</AnimatePresence>
-
-    <AnimatePresence>{toast && <motion.div initial={{ opacity: 0, y: 12, scale: .96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 8 }} className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full border border-white/[.1] bg-[#151821]/95 px-4 py-2.5 text-xs text-white/75 shadow-2xl backdrop-blur-xl">{toast}</motion.div>}</AnimatePresence>
+  return <main className="auth-shell noise relative flex min-h-screen items-center justify-center overflow-hidden bg-[#07080c] px-4 py-8 text-white">
+    <div className="auth-orb auth-orb-one" /><div className="auth-orb auth-orb-two" />
+    <motion.div initial={{ opacity: 0, y: 18, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: .45 }} className="relative z-10 grid w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/[.08] bg-white/[.035] shadow-2xl backdrop-blur-2xl lg:grid-cols-[.95fr_1.05fr]">
+      <section className="hidden flex-col justify-between border-r border-white/[.07] bg-gradient-to-br from-white/[.07] via-white/[.025] to-transparent p-10 lg:flex">
+        <div><div className="mb-12 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black shadow-glow"><MessageCircle size={23} /></div><p className="text-xs font-semibold uppercase tracking-[.28em] text-white/30">Nitra Chat / Phase 03</p><h1 className="mt-5 max-w-sm text-5xl font-semibold leading-[1.02] tracking-[-.045em]">Your conversations,<br /><span className="text-white/45">your identity.</span></h1><p className="mt-6 max-w-md text-sm leading-6 text-white/40">Create a Nitra identity with your email and phone number. This phase is a polished frontend prototype, ready for real authentication later.</p></div>
+        <div className="rounded-2xl border border-white/[.07] bg-black/20 p-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300"><Sparkles size={16} /></div><div><p className="text-sm font-medium">Built for real-time next</p><p className="text-xs text-white/30">Auth UI → profiles → database → WebSockets</p></div></div></div>
+      </section>
+      <section className="p-6 sm:p-10">
+        <div className="mb-8 flex items-center justify-between"><div className="flex items-center gap-3 lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black"><MessageCircle size={19} /></div><span className="font-semibold">Nitra Chat</span></div><div className="ml-auto rounded-full border border-white/[.07] bg-white/[.035] px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-white/35">Frontend demo</div></div>
+        <div className="mb-7"><p className="text-xs font-medium uppercase tracking-[.2em] text-white/30">{mode === "login" ? "Welcome back" : "Create your identity"}</p><h2 className="mt-2 text-3xl font-semibold tracking-tight">{mode === "login" ? "Sign in to Nitra." : "Join the conversation."}</h2><p className="mt-2 text-sm text-white/35">{mode === "login" ? "Continue to your communication workspace." : "Use your email and phone to create your Nitra ID."}</p></div>
+        <form onSubmit={submit} className="space-y-4">
+          {mode === "register" && <Field label="Display name" value={form.name} onChange={v => update("name", v)} placeholder="Your name" />}
+          <Field label={mode === "login" ? "Email or phone" : "Email address"} value={form.email} onChange={v => update("email", v)} placeholder={mode === "login" ? "you@example.com or +91..." : "you@example.com"} type={mode === "login" ? "text" : "email"} />
+          {mode === "register" && <Field label="Phone number" value={form.phone} onChange={v => update("phone", v)} placeholder="+91 98765 43210" type="tel" />}
+          <div><div className="mb-2 flex items-center justify-between"><label className="text-xs font-medium text-white/55">Password</label>{mode === "login" && <button type="button" className="text-[11px] text-white/25 hover:text-white/55" onClick={() => setError("Password recovery will be connected in the backend phase.")}>Forgot?</button>}</div><div className="relative"><input required value={form.password} onChange={e => update("password", e.target.value)} type={showPassword ? "text" : "password"} placeholder="••••••••" className="h-12 w-full rounded-xl border border-white/[.08] bg-black/20 px-4 pr-20 text-sm outline-none transition focus:border-white/20" /><button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-white/30 hover:text-white/60">{showPassword ? "Hide" : "Show"}</button></div></div>
+          {mode === "register" && <Field label="Confirm password" value={form.confirm} onChange={v => update("confirm", v)} placeholder="Repeat password" type="password" />}
+          {mode === "register" && <label className="flex items-start gap-2 text-[11px] leading-5 text-white/30"><input required type="checkbox" className="mt-1 accent-white" /> I agree to the Nitra demo terms and understand this is frontend-only.</label>}
+          <AnimatePresence>{error && <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-red-400/15 bg-red-400/5 px-3 py-2 text-xs text-red-200/80">{error}</motion.p>}</AnimatePresence>
+          <button className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white font-semibold text-black transition hover:scale-[1.01] hover:bg-white/90 active:scale-[.99]">{mode === "login" ? "Enter Nitra" : "Create Nitra ID"}<ArrowLeft size={16} className="rotate-180 transition group-hover:translate-x-1" /></button>
+        </form>
+        <div className="my-6 flex items-center gap-3"><div className="h-px flex-1 bg-white/[.07]" /><span className="text-[10px] uppercase tracking-[.18em] text-white/20">or</span><div className="h-px flex-1 bg-white/[.07]" /></div>
+        <button onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }} className="h-11 w-full rounded-xl border border-white/[.08] bg-white/[.025] text-sm text-white/65 transition hover:bg-white/[.06]">{mode === "login" ? "Create a new Nitra ID" : "I already have an account"}</button>
+        <p className="mt-5 text-center text-[10px] leading-4 text-white/20">No real email/SMS is sent in Phase 3. Verification and secure sessions arrive with the backend.</p>
+      </section>
+    </motion.div>
   </main>;
 }
 
-function InfoRow({ icon, title, value, onClick }: { icon: React.ReactNode; title: string; value: string; onClick: () => void }) {
-  return <button onClick={onClick} className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition hover:bg-white/[.04]"><span className="text-white/30">{icon}</span><span className="flex-1"><span className="block text-xs text-white/65">{title}</span><span className="block text-[10px] text-white/25">{value}</span></span><ChevronDown size={14} className="-rotate-90 text-white/15" /></button>;
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; type?: string }) {
+  return <div><label className="mb-2 block text-xs font-medium text-white/55">{label}</label><input required value={value} onChange={e => onChange(e.target.value)} type={type} placeholder={placeholder} className="h-12 w-full rounded-xl border border-white/[.08] bg-black/20 px-4 text-sm outline-none transition placeholder:text-white/15 focus:border-white/20" /></div>;
 }
 
-function CommandItem({ icon, title, hint, onClick }: { icon: React.ReactNode; title: string; hint: string; onClick: () => void }) {
-  return <button onClick={onClick} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/[.06]"><span className="text-white/45">{icon}</span><span className="flex-1 text-sm text-white/75">{title}</span><span className="text-[10px] text-white/20">{hint}</span></button>;
+export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
+  const [active, setActive] = useState("maya");
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<Record<string, Message[]>>({ maya: seedMessages });
+  const [unread, setUnread] = useState<Record<string, number>>({ maya: 2, dev: 7 });
+  const [mobileList, setMobileList] = useState(false);
+  const [details, setDetails] = useState(true);
+  const [command, setCommand] = useState(false);
+  const [emoji, setEmoji] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [toast, setToast] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const current = seedChats.find(c => c.id === active) ?? seedChats[0];
+  const currentMessages = messages[active] ?? [];
+  const filtered = useMemo(() => seedChats.filter(c => `${c.name} ${c.preview}`.toLowerCase().includes(query.toLowerCase())), [query]);
+
+  useEffect(() => { const saved = localStorage.getItem("nitra-demo-user"); if (saved) setUser(JSON.parse(saved)); setReady(true); }, []);
+  useEffect(() => { const h = (e: KeyboardEvent) => { const mod = e.metaKey || e.ctrlKey; if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); setCommand(v => !v); } if (e.key === "Escape") { setCommand(false); setEmoji(false); } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, []);
+  useEffect(() => { chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" }); }, [currentMessages.length, typing]);
+
+  function notify(text: string) { setToast(text); window.setTimeout(() => setToast(""), 1800); }
+  function openChat(id: string) { setActive(id); setUnread(p => ({ ...p, [id]: 0 })); setMobileList(false); }
+  function sendMessage() { const value = message.trim(); if (!value) return; const m = { id: Date.now(), from: "me" as const, text: value, time: "now" }; setMessages(p => ({ ...p, [active]: [...(p[active] ?? []), m] })); setMessage(""); setEmoji(false); setTyping(true); window.setTimeout(() => { setTyping(false); const r = { id: Date.now() + 1, from: "them" as const, text: replies[Math.floor(Math.random() * replies.length)], time: "now" }; setMessages(p => ({ ...p, [active]: [...(p[active] ?? []), r] })); }, 1200); }
+  function logout() { localStorage.removeItem("nitra-demo-user"); setUser(null); notify("Signed out"); }
+
+  if (!ready) return <main className="flex min-h-screen items-center justify-center bg-[#07080c] text-white"><motion.div animate={{ opacity: [.3, 1, .3] }} transition={{ repeat: Infinity, duration: 1.4 }}><MessageCircle size={28} /></motion.div></main>;
+  if (!user) return <AuthScreen onLogin={setUser} />;
+
+  return <main className="noise flex h-screen overflow-hidden bg-[#08090d] text-white" onClick={() => setEmoji(false)}>
+    <aside className="desktop-rail glass flex w-[76px] shrink-0 flex-col items-center justify-between px-3 py-5"><div className="flex flex-col items-center gap-4"><motion.div whileHover={{ rotate: 8, scale: 1.05 }} className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-black shadow-glow"><MessageCircle size={21} /></motion.div><IconButton active label="Chats"><MessageCircle size={20} /></IconButton><IconButton label="People" onClick={() => notify("People profiles are being wired next.")}><Users size={20} /></IconButton><IconButton label="Notifications" onClick={() => notify("You're all caught up.")}><Bell size={20} /></IconButton></div><div className="flex flex-col items-center gap-3"><IconButton label="Settings" onClick={() => notify("Profile settings are ready for the backend phase.")}><Settings size={19} /></IconButton><button onClick={() => notify(`${user.id} · ${user.email}`)} title="Your Nitra ID"><Avatar initials={user.initials} accent="from-indigo-400 to-violet-500" /></button></div></aside>
+
+    <AnimatePresence>{mobileList && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileList(false)} className="fixed inset-0 z-30 bg-black/60 lg:hidden" />}</AnimatePresence>
+    <aside className={`absolute inset-y-0 left-0 z-40 flex w-[330px] flex-col border-r border-white/[.07] bg-[#0c0e13] transition-transform lg:relative lg:z-10 lg:flex ${mobileList ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      <div className="flex items-center justify-between px-5 pb-4 pt-6"><div><p className="text-[11px] uppercase tracking-[.22em] text-white/30">Workspace</p><h1 className="mt-1 text-xl font-semibold">Messages</h1></div><div className="flex gap-1"><IconButton label="New message" onClick={() => { setActive("maya"); setMobileList(false); setTimeout(() => inputRef.current?.focus(), 100); }}><Plus size={18} /></IconButton><IconButton label="Close" onClick={() => setMobileList(false)}><X size={18} /></IconButton></div></div>
+      <div className="px-4 pb-4"><button onClick={() => setCommand(true)} className="flex h-10 w-full items-center gap-2 rounded-xl border border-white/[.07] bg-white/[.035] px-3 text-left"><Search size={16} className="text-white/30" /><span className="flex-1 text-sm text-white/25">Search conversations</span><kbd className="rounded-md bg-white/[.06] px-1.5 py-0.5 text-[10px] text-white/25">⌘ K</kbd></button></div>
+      <div className="flex-1 overflow-y-auto px-2"><div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-white/25">Recent</div>{filtered.length ? filtered.map(c => <motion.button layout key={c.id} onClick={() => openChat(c.id)} className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${active === c.id ? "bg-white/[.075]" : "hover:bg-white/[.04]"}`}><Avatar initials={c.initials} online={c.online} accent={c.accent} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{c.name}</span><span className="text-[10px] text-white/25">{c.time}</span></span><span className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-xs text-white/30">{c.preview}</span>{unread[c.id] ? <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-black">{unread[c.id]}</span> : null}</span></span></motion.button>) : <div className="px-4 py-12 text-center text-sm text-white/30">No conversations found.</div>}</div>
+      <div className="border-t border-white/[.06] p-4"><div className="flex items-center gap-3 rounded-2xl bg-white/[.035] p-3"><Avatar initials={user.initials} accent="from-indigo-400 to-violet-500" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{user.name}</p><p className="truncate text-[10px] text-white/25">{user.id}</p></div><button onClick={logout} title="Sign out" className="text-xs text-white/25 hover:text-white">Exit</button></div></div>
+    </aside>
+
+    <section className="relative flex min-w-0 flex-1 flex-col bg-[radial-gradient(circle_at_50%_-20%,rgba(115,130,255,.08),transparent_45%)]">
+      <header className="glass flex h-[72px] shrink-0 items-center justify-between border-x-0 border-t-0 px-4 sm:px-6"><div className="flex min-w-0 items-center gap-3"><IconButton label="Open conversations" onClick={() => setMobileList(true)}><Menu size={20} /></IconButton><Avatar initials={current.initials} online={current.online} accent={current.accent} /><div className="min-w-0"><h2 className="truncate text-sm font-semibold">{current.name}</h2><p className="mt-0.5 text-[11px] text-white/30">{current.online ? "Active now" : "Last seen recently"}</p></div></div><div className="flex items-center gap-1"><IconButton label="Search" onClick={() => setCommand(true)}><Search size={18} /></IconButton><IconButton label="Call" onClick={() => notify("Voice calling arrives with WebSockets.")}><Phone size={18} /></IconButton><IconButton label="Video" onClick={() => notify("Video calling arrives with WebRTC later.")}><Video size={18} /></IconButton><IconButton label="Details" active={details} onClick={() => setDetails(v => !v)}><Info size={18} /></IconButton></div></header>
+      <div ref={chatRef} className="flex-1 overflow-y-auto px-4 py-6 sm:px-8"><div className="mx-auto flex max-w-3xl flex-col gap-3">{currentMessages.map(m => <motion.div initial={{ opacity: 0, y: 8, scale: .98 }} animate={{ opacity: 1, y: 0, scale: 1 }} key={m.id} className={`group flex ${m.from === "me" ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${m.from === "me" ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{m.text}</p><div className={`mt-1 flex items-center gap-2 text-[10px] ${m.from === "me" ? "text-black/35" : "text-white/25"}`}><span>{m.time}</span>{m.from === "me" && <CheckCheck size={13} />}</div>{m.reactions?.length ? <div className="mt-2 flex gap-1">{m.reactions.map((r, i) => <button key={i} onClick={() => notify("Reaction added")} className="rounded-full border border-black/10 bg-black/5 px-2 py-0.5 text-[10px]">{r}</button>)}</div> : null}</div></motion.div>)}{typing && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-xs text-white/25"><Avatar initials={current.initials} accent={current.accent} size="sm" /><span className="typing-dots"><i /> <i /> <i /></span></motion.div>}</div></div>
+      <div className="border-t border-white/[.06] p-3 sm:p-5"><div className="mx-auto max-w-3xl rounded-2xl border border-white/[.08] bg-white/[.035] p-2 shadow-xl backdrop-blur-xl"><div className="flex items-end gap-2"><IconButton label="Attach" onClick={() => notify("Attachments will be connected in the media phase.")}><Paperclip size={18} /></IconButton><textarea ref={inputRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} rows={1} placeholder="Write a message..." className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm outline-none placeholder:text-white/20" /><div className="relative"><IconButton label="Emoji" onClick={e => { e?.stopPropagation?.(); setEmoji(v => !v); }}><Smile size={18} /></IconButton>{emoji && <div onClick={e => e.stopPropagation()} className="absolute bottom-12 right-0 grid grid-cols-5 gap-1 rounded-2xl border border-white/[.08] bg-[#151821] p-3 shadow-2xl">{["✨","❤️","👍","😂","🔥","🎉","🤝","🚀","👀","💡"].map(x => <button key={x} onClick={() => { setMessage(v => v + x); setEmoji(false); inputRef.current?.focus(); }} className="flex h-9 w-9 items-center justify-center rounded-xl text-lg hover:bg-white/[.07]">{x}</button>)}</div>}</div><button onClick={sendMessage} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-black transition hover:scale-105"><Send size={17} /></button></div><p className="px-2 pt-1 text-[9px] text-white/15">Enter to send · Shift + Enter for a new line</p></div></div>
+    </section>
+
+    <AnimatePresence>{details && <motion.aside initial={{ width: 0, opacity: 0 }} animate={{ width: 280, opacity: 1 }} exit={{ width: 0, opacity: 0 }} className="details-panel glass hidden shrink-0 overflow-hidden border-y-0 border-r-0 lg:block"><div className="w-[280px] p-6"><div className="flex justify-end"><IconButton label="Close details" onClick={() => setDetails(false)}><X size={17} /></IconButton></div><div className="flex flex-col items-center pt-4"><Avatar initials={current.initials} online={current.online} accent={current.accent} size="lg" /><h3 className="mt-4 text-lg font-semibold">{current.name}</h3><p className="text-xs text-white/30">{current.online ? "Active now" : "Recently active"}</p></div><div className="mt-8 space-y-3"><div className="rounded-2xl border border-white/[.07] bg-white/[.03] p-4"><p className="text-[10px] uppercase tracking-[.18em] text-white/25">Connection</p><p className="mt-2 text-sm text-white/65">Nitra identity ready</p><p className="mt-1 text-xs text-white/25">Real account data connects in Phase 4.</p></div><div className="rounded-2xl border border-white/[.07] bg-white/[.03] p-4"><p className="text-[10px] uppercase tracking-[.18em] text-white/25">Coming next</p><p className="mt-2 text-sm text-white/65">Profiles · API · database</p></div></div></div></motion.aside>}</AnimatePresence>
+
+    <AnimatePresence>{command && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm" onClick={() => setCommand(false)}><motion.div initial={{ y: -12, scale: .98 }} animate={{ y: 0, scale: 1 }} onClick={e => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/[.1] bg-[#11131a] shadow-2xl"><div className="flex items-center gap-3 border-b border-white/[.07] px-4"><Search size={18} className="text-white/30" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Search people or conversations..." className="h-14 flex-1 bg-transparent text-sm outline-none placeholder:text-white/20" /><kbd className="rounded-md bg-white/[.06] px-2 py-1 text-[10px] text-white/25">ESC</kbd></div><div className="max-h-80 overflow-y-auto p-2">{filtered.map(c => <button key={c.id} onClick={() => { openChat(c.id); setCommand(false); }} className="flex w-full items-center gap-3 rounded-xl p-3 text-left hover:bg-white/[.05]"><Avatar initials={c.initials} online={c.online} accent={c.accent} /><div><p className="text-sm font-medium">{c.name}</p><p className="text-xs text-white/25">{c.preview}</p></div></button>)}{!filtered.length && <p className="p-8 text-center text-sm text-white/25">No matches.</p>}</div></motion.div></motion.div>}</AnimatePresence>
+    <AnimatePresence>{toast && <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="fixed bottom-5 left-1/2 z-[120] -translate-x-1/2 rounded-full border border-white/[.1] bg-[#171922]/95 px-4 py-2 text-xs text-white/75 shadow-2xl backdrop-blur-xl">{toast}</motion.div>}</AnimatePresence>
+  </main>;
 }
