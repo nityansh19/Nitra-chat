@@ -4,7 +4,7 @@ A premium, futuristic real-time communication workspace built from scratch with 
 
 ## Current phase
 
-**Phase 3 — Authentication & Nitra identity frontend**
+**Phase 4 — Profiles & Nitra identity workspace**
 
 ### Phase 0/1 foundation
 - Premium dark-first communication workspace
@@ -28,16 +28,24 @@ A premium, futuristic real-time communication workspace built from scratch with 
 - Reduced-motion support
 
 ### Phase 3 additions
-- Premium login screen with animated glass/depth treatment
-- Registration flow for display name, email, phone number, password, and confirmation
-- Frontend validation for email, phone, password, and required fields
-- Automatic Nitra ID generation such as `@nityansh_4821`
-- Local demo account/session persistence with `localStorage`
-- Login flow that restores the saved demo identity
-- Personalized workspace identity, avatar initials, and Nitra ID
-- Sign-out interaction
-- Clear frontend-only messaging so real authentication is not confused with production security
-- Responsive authentication layout for desktop and mobile
+- Premium login and registration screens
+- Registration with display name, email, phone number, password, and confirmation
+- Frontend validation and automatic Nitra ID generation
+- Local demo identity/session persistence
+- Personalized workspace identity and sign-out interaction
+- Clear frontend-only messaging around authentication limitations
+
+### Phase 4 additions
+- Dedicated `/profile` identity workspace
+- Premium profile header with Nitra ID and live status
+- Editable display name, bio, and status
+- Nitra ID displayed as a locked identity handle
+- Copy-Nitra-ID interaction
+- Email and phone identity summary
+- Privacy controls UI for profile visibility, activity status, and read receipts
+- Phase 4 architecture notes for future backend rules
+- Sign-out from the profile workspace
+- Responsive profile experience
 
 ## Run locally
 
@@ -46,19 +54,20 @@ npm install
 npm run dev
 ```
 
-Then open the local Next.js development server shown in your terminal.
+Then open the local Next.js development server shown in your terminal. The Phase 4 profile page is available at `/profile` after signing into the frontend demo.
 
 ## Roadmap
 
 1. Frontend foundation — complete
 2. Interactive workspace — complete
-3. Authentication & Nitra identity frontend — **complete**
-4. Database-backed users, profiles, conversations, and messages
-5. REST API layer
-6. WebSocket real-time messaging
-7. Presence, typing, reactions, and message actions — UI prototype complete; backend integration later
-8. Attachments and media
-9. Offline/error/loading states
-10. Production polish and deployment
+3. Authentication & Nitra identity frontend — complete
+4. Profiles & Nitra identity workspace — **complete**
+5. Database-backed users, profiles, conversations, and messages
+6. REST API layer
+7. WebSocket real-time messaging
+8. Presence, typing, reactions, and message actions — UI prototype complete; backend integration later
+9. Attachments and media
+10. Offline/error/loading states
+11. Production polish and deployment
 
-> Mock/local state is intentional through the frontend prototyping phases. Phase 3 does **not** send real emails/SMS or provide secure authentication. The local identity layer will be replaced by real auth, database, REST, and WebSocket services in the backend phases.
+> Mock/local state is intentional through the frontend prototyping phases. Phase 3/4 do **not** send real emails/SMS or provide secure authentication. The local identity layer will be replaced by real auth, database, REST, and WebSocket services in the backend phases.
