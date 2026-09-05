@@ -1,10 +1,12 @@
 # Nitra Chat
 
-A premium, futuristic real-time communication workspace built from scratch with Next.js, TypeScript, Tailwind CSS, Motion, and Lucide.
+A premium, futuristic real-time communication workspace built from scratch with Next.js, TypeScript, Tailwind CSS, Motion, Lucide, and Firebase.
 
 ## Current phase
 
-**Phase 6 — Backend server & REST API layer**
+**Firebase migration — foundation ready**
+
+The project is moving from the earlier MongoDB/JWT prototype to Firebase so the realtime communication stack can be built around Firebase Authentication + Cloud Firestore.
 
 ### Phase 0/1 foundation
 - Premium dark-first communication workspace
@@ -43,73 +45,93 @@ A premium, futuristic real-time communication workspace built from scratch with 
 - Privacy controls UI
 - Profile picture upload and profile customization UI
 
-### Phase 5 additions
-- MongoDB connection layer with connection caching
-- Database-backed `User`, `Conversation`, and `Message` models
-- Secure password hashing with bcrypt
-- Database-backed user discovery
-- `/connections` discovery workspace
-- Profile data model and customization foundation
+### Previous backend prototype
+- MongoDB connection layer and Mongoose models were used as the first backend prototype
+- JWT HTTP-only sessions, REST APIs, and database-backed search were implemented during the prototype stage
+- The frontend still contained prototype/local state in some areas
 
-### Phase 6 additions — backend server
-- JWT-based authenticated sessions in an HTTP-only cookie
-- Registration now creates a session automatically
-- `POST /api/auth/login` for email/phone authentication
-- `POST /api/auth/logout` for session termination
-- `GET /api/auth/me` for the current authenticated user
-- `GET/PATCH /api/users/me` for authenticated profile retrieval and updates
-- Profile picture persistence through the profile API
-- Privacy settings persistence through the profile API
-- Authenticated user search; the current user is excluded from results
-- `GET /api/conversations` for the user's conversation list
-- `POST /api/conversations` to create/find a direct conversation by Nitra ID
-- `GET /api/conversations/:conversationId/messages` for message history
-- `POST /api/conversations/:conversationId/messages` to send messages
-- Reply-to-message support in the message API
-- `PATCH/DELETE /api/conversations/:conversationId/messages/:messageId` for owned-message editing/deletion
-- Conversation participant authorization checks
-- Message ownership authorization checks
-- MongoDB indexes for conversation/message queries
+### Firebase foundation — current
+- Firebase project: `nitra-chat-3fd77`
+- Firebase Web SDK added to the application
+- Firebase Authentication client initialized
+- Cloud Firestore client initialized
+- Firestore data-access layer added for users, conversations, and messages
+- Realtime Firestore subscriptions prepared for conversations and messages
+- Direct-conversation creation/find logic prepared
+- User search prepared for Nitra ID, name, email, and phone
+- Message sending prepared with reply support and conversation metadata updates
+- Firestore security rules included under `firebase/firestore.rules`
+- Firestore composite index configuration included under `firebase/firestore.indexes.json`
+- Firebase CLI deployment configuration included in `firebase.json`
+- Local environment files are ignored by Git
 
-## Run locally
+## Firebase setup
+
+The Firebase project is already created and the Cloud Firestore database has been created.
+
+Enable **Authentication → Sign-in method → Email/Password** in the Firebase Console before testing authentication.
+
+Copy `.env.example` to `.env.local` if you want to override the Firebase Web configuration with environment variables. The checked-in client configuration is not a service-account credential; Firebase Web API configuration is designed to be used by browser clients.
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=nitra-chat-3fd77
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+```
+
+Then install dependencies and run the app:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Copy `.env.example` to `.env.local` and set:
+### Storage note
 
-```env
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_long_random_secret_at_least_32_characters
+Firebase Cloud Storage is **not enabled** because the current project is on the no-cost Spark plan and the Firebase Console is requiring the Blaze billing plan for Storage. Nitra Chat will therefore keep Storage out of the critical path for now. Profile/media storage will be added later only when a suitable no-cost storage strategy is chosen.
+
+## Firebase data model
+
+```text
+users/{uid}
+  name
+  email
+  phone
+  nitraId
+  initials
+  bio
+  status
+  avatarUrl
+  role
+  location
+  website
+  privacy
+  createdAt
+  updatedAt
+
+conversations/{conversationId}
+  type
+  title
+  participantIds
+  lastMessageId
+  lastMessageText
+  lastMessageAt
+  createdAt
+  updatedAt
+
+conversations/{conversationId}/messages/{messageId}
+  senderId
+  text
+  replyToId
+  reactions
+  editedAt
+  deletedAt
+  createdAt
 ```
-
-Restart the dev server after changing environment variables.
-
-## REST API
-
-### Authentication
-- `POST /api/auth/login` — authenticate with email or phone + password.
-- `POST /api/auth/logout` — clear the HTTP-only session cookie.
-- `GET /api/auth/me` — return the current authenticated user.
-
-### Profile
-- `GET /api/users/me` — load the authenticated user's profile.
-- `PATCH /api/users/me` — update name, bio, status, avatar, and privacy settings.
-
-### Network
-- `GET /api/users/search?q=` — authenticated Nitra user discovery.
-
-### Conversations
-- `GET /api/conversations` — list conversations for the authenticated user.
-- `POST /api/conversations` — create/find a direct conversation using a Nitra ID.
-
-### Messages
-- `GET /api/conversations/:conversationId/messages` — load message history.
-- `POST /api/conversations/:conversationId/messages` — send a message.
-- `PATCH /api/conversations/:conversationId/messages/:messageId` — edit/delete an owned message.
-- `DELETE /api/conversations/:conversationId/messages/:messageId` — soft-delete an owned message.
 
 ## Roadmap
 
@@ -117,12 +139,14 @@ Restart the dev server after changing environment variables.
 2. Interactive workspace — complete
 3. Authentication & Nitra identity frontend — complete
 4. Profiles & Nitra identity workspace — complete
-5. Database foundation, Nitra network & profiles — complete
-6. Backend server & REST API layer — **complete**
-7. WebSocket real-time messaging — next
-8. Presence, typing, reactions, and message actions — backend integration
-9. Attachments and media
-10. Offline/error/loading states
-11. Production polish and deployment
+5. MongoDB backend prototype — complete as prototype
+6. Firebase project + Firestore foundation — **complete**
+7. Firebase Authentication migration — next
+8. Firebase-backed profiles and user discovery
+9. Realtime conversations and messages
+10. Presence, typing, reactions, replies, editing and deletion
+11. Offline/loading/error states
+12. Media strategy without making paid Storage a requirement
+13. Production polish and Vercel deployment
 
-> Phase 6 establishes the authenticated server/API layer. The frontend still contains prototype/local state in some areas and will be migrated to these APIs as the real-time architecture is built. WebSockets are intentionally reserved for the next phase.
+> The Firebase data layer is now prepared, but the existing UI is not yet fully migrated to Firebase. The next implementation step is replacing the demo/localStorage authentication flow with Firebase Authentication and wiring the workspace to Firestore.
