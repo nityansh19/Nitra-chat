@@ -4,7 +4,7 @@ import nextPlugin from "@next/eslint-plugin-next";
 export default defineConfig([
   {
     name: "nitra/next",
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["**/*.{js,jsx}"],
     plugins: {
       "@next/next": nextPlugin,
     },
@@ -13,5 +13,12 @@ export default defineConfig([
       ...nextPlugin.configs["core-web-vitals"].rules,
     },
   },
-  globalIgnores([".next/**", "node_modules/**", "out/**", "build/**"]),
+  globalIgnores([
+    ".next/**",
+    "node_modules/**",
+    "out/**",
+    "build/**",
+    "**/*.ts",
+    "**/*.tsx",
+  ]),
 ]);
