@@ -1,10 +1,9 @@
-import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 // Firebase Web configuration is supplied through deployment environment variables.
-// Firebase client configuration is not a server secret, but keeping the project
-// values out of the repository prevents deployment secret scanners from blocking builds.
+// The values are intentionally not stored in the repository.
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
@@ -15,8 +14,19 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "",
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+function requireFirebaseApp(): FirebaseApp {
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.appId) {
+    throw new Error("Firebase is not configured. Add the NEXT_PUBLIC_FIREBASE_* environment variables.");
+  }
+  return getApps().length ? getApp() : initializeApp(firebaseConfig);
+}
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export default app;
+export function getFirebaseAuth(): Auth {
+  return getAuth(requireFirebaseApp());
+}
+
+export function getFirebaseDb(): Firestore {
+  return getFirestore(requireFirebaseApp());
+}
+
+export default requireFirebaseApp;
