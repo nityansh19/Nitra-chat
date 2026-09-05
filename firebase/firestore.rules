@@ -2,6 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
@@ -12,7 +13,9 @@ service cloud.firestore {
 
     function isParticipant(conversationId) {
       return signedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        && request.auth.uid in get(
+          /databases/$(database)/documents/conversations/$(conversationId)
+        ).data.participantIds;
     }
 
     match /users/{uid} {
@@ -22,6 +25,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Friend requests are private to the sender and receiver.
     match /friendRequests/{requestId} {
       allow create: if signedIn()
         && request.resource.data.senderId == request.auth.uid
@@ -29,13 +33,29 @@ service cloud.firestore {
         && request.resource.data.status == 'pending';
 
       allow read: if signedIn()
-        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+        && (
+          resource.data.senderId == request.auth.uid
+          || resource.data.receiverId == request.auth.uid
+        );
 
+      // Receiver can accept/decline. Sender can cancel.
+      // Neither side can change who the request is between.
       allow update: if signedIn()
-        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid)
         && request.resource.data.senderId == resource.data.senderId
         && request.resource.data.receiverId == resource.data.receiverId
-        && request.resource.data.status in ['pending', 'accepted', 'declined', 'cancelled'];
+        && (
+          (
+            resource.data.receiverId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'declined']
+          )
+          ||
+          (
+            resource.data.senderId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'cancelled'
+          )
+        );
 
       allow delete: if false;
     }
