@@ -15,6 +15,7 @@ type Tab = "inbox" | "starred" | "saved" | "archive";
 
 const emojis = ["😀","😂","😍","🥹","😎","🔥","✨","❤️","🙌","👀","💀","🚀","🤝","💯","😭","😮","👍","🎉","🫡","🧠","☕","💻","⚡","🌙"];
 const gifs = ["😂 LOL","🔥 NICE","🤯 WOW","🥹 LOVE","👏 CLAP","💀 BRUH","🚀 SHIP IT","☕ COFFEE"];
+const CHAT_STORAGE_KEY = "nitra-ui-chats-v5";
 
 function Avatar({ initials, online = false, size = "md" }: { initials: string; online?: boolean; size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "h-9 w-9 rounded-xl text-[10px]", md: "h-11 w-11 rounded-2xl text-xs", lg: "h-20 w-20 rounded-[22px] text-xl" };
@@ -91,12 +92,6 @@ function EmojiPicker({ onSelect, onClose }: { onSelect: (value: string) => void;
   </motion.div>;
 }
 
-const seed: Chat[] = [
-  { id: "design", contact: { id: "design", name: "Maya Chen", initials: "MC", email: "maya@example.com", nitraId: "@mayachen_4821", status: "Designing the future", online: true }, pinned: true, unread: 2, lastTime: "Now", messages: [{ id: 1, from: "them", text: "The new concept feels much cleaner now ✨", time: "6:12 PM", reactions: ["✨"] }, { id: 2, from: "me", text: "That looks seriously good. 🔥", time: "6:14 PM" }] },
-  { id: "dev", contact: { id: "dev", name: "Arjun Rao", initials: "AR", email: "arjun@example.com", nitraId: "@arjunrao_1092", status: "Shipping something", online: true }, unread: 0, lastTime: "5:42 PM", messages: [{ id: 3, from: "them", text: "The realtime layer is almost ready. 🚀", time: "5:42 PM" }] },
-  { id: "crew", contact: { id: "crew", name: "Nitra Crew", initials: "NC", email: "team@nitra.local", nitraId: "@nitracrew_7710", status: "4 members", online: true }, unread: 5, lastTime: "4:18 PM", messages: [{ id: 4, from: "them", text: "Welcome to the new Nitra workspace! 🎉", time: "4:18 PM" }] },
-];
-
 function MessageBubble({ message, onReact, onSave, onDelete }: { message: Message; onReact: (emoji: string) => void; onSave: () => void; onDelete: () => void }) {
   const mine = message.from === "me";
   return <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="relative max-w-[86%] sm:max-w-[72%]"><div className={`rounded-[20px] px-4 py-3 text-sm leading-6 ${mine ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{message.text}</p></div><div className={`mt-1 flex items-center gap-2 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}><span>{message.time}</span>{mine && <CheckCheck size={11} />}</div>{message.reactions?.length ? <div className={`absolute -bottom-3 ${mine ? "right-2" : "left-2"} rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs`}>{message.reactions.join(" ")}</div> : null}<div className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 rounded-xl border border-white/10 bg-[#12141a] p-1 shadow-xl group-hover:flex ${mine ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"}`}><button onClick={() => onReact("❤️")} className="h-7 w-7">❤️</button><button onClick={() => onReact("🔥")} className="h-7 w-7">🔥</button><button onClick={onSave} className="h-7 w-7"><Bookmark size={14} /></button>{mine && <button onClick={onDelete} className="h-7 w-7 text-red-300"><Trash2 size={14} /></button>}</div></div></motion.div>;
@@ -104,8 +99,8 @@ function MessageBubble({ message, onReact, onSave, onDelete }: { message: Messag
 
 function Home() {
   const [user, setUser] = useState<User | null>(null); const [ready, setReady] = useState(false); const [chats, setChats] = useState<Chat[]>([]); const [activeId, setActiveId] = useState<string | null>(null); const [tab, setTab] = useState<Tab>("inbox"); const [query, setQuery] = useState(""); const [message, setMessage] = useState(""); const [picker, setPicker] = useState(false); const [details, setDetails] = useState(false); const [mobileList, setMobileList] = useState(false); const [toast, setToast] = useState(""); const [saved, setSaved] = useState<number[]>([]); const inputRef = useRef<HTMLTextAreaElement>(null); const chatRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { try { const u = localStorage.getItem("nitra-demo-user"); if (u) setUser(JSON.parse(u)); const c = localStorage.getItem("nitra-ui-chats-v4"); setChats(c ? JSON.parse(c) : seed); const s = localStorage.getItem("nitra-ui-saved-v4"); if (s) setSaved(JSON.parse(s)); } catch { setChats(seed); } setReady(true); }, []);
-  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-chats-v4", JSON.stringify(chats)); }, [chats, ready]);
+  useEffect(() => { try { const u = localStorage.getItem("nitra-demo-user"); if (u) setUser(JSON.parse(u)); localStorage.removeItem("nitra-ui-chats-v4"); const c = localStorage.getItem(CHAT_STORAGE_KEY); setChats(c ? JSON.parse(c) : []); const s = localStorage.getItem("nitra-ui-saved-v4"); if (s) setSaved(JSON.parse(s)); } catch { setChats([]); } setReady(true); }, []);
+  useEffect(() => { if (ready) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats)); }, [chats, ready]);
   useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);
   useEffect(() => { if (activeId) requestAnimationFrame(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" })); }, [activeId, chats]);
   useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 2400); return () => window.clearTimeout(t); }, [toast]);
