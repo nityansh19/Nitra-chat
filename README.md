@@ -4,18 +4,33 @@ A premium, futuristic real-time communication workspace built from scratch with 
 
 ## Current phase
 
-**Phase 0 — Frontend foundation**
+**Phase 2 — Interactive workspace**
 
+### Phase 0/1 foundation
 - Premium dark-first communication workspace
 - Three-layer desktop layout: navigation rail, conversations, active chat
 - Optional conversation details panel
 - Responsive mobile conversation drawer
 - Animated message entrance and typing state
-- Functional local message composer
-- Conversation search/filtering
-- Message read-state styling
-- Presence indicators
-- Responsive UI designed to transform rather than simply shrink
+
+### Phase 2 additions
+- Conversation switching with per-chat local message state
+- Unread counts clear when a conversation is opened
+- Command palette with `Cmd/Ctrl + K` and `Esc`
+- Search conversations from the command palette
+- Functional new-message action
+- Message actions menu
+- Reply-to-message composer state
+- Local reactions
+- Delete-your-message interaction
+- Emoji picker
+- Automatic scroll-to-latest-message
+- Simulated reply/typing feedback for realistic prototyping
+- Interactive call/video/info/attachment controls with feedback toasts
+- Empty search state
+- Keyboard-focus accessibility polish
+- Reduced-motion support
+- Responsive mobile behavior preserved
 
 ## Run locally
 
@@ -28,15 +43,15 @@ Then open the local Next.js development server shown in your terminal.
 
 ## Roadmap
 
-1. Frontend foundation — current
-2. Component architecture + command palette
+1. Frontend foundation — complete
+2. Interactive workspace — **complete**
 3. Authentication and user profiles
 4. Database-backed conversations and messages
 5. REST API layer
 6. WebSocket real-time messaging
-7. Presence, typing, reactions, message actions
+7. Presence, typing, reactions, and message actions — UI prototype complete; backend integration later
 8. Attachments and media
 9. Offline/error/loading states
 10. Production polish and deployment
 
-> Mock data is intentional in the current phase. The UI/data boundary will be kept clean so the mock layer can be replaced by real REST + WebSocket services.
+> Mock/local state is intentional through the frontend prototyping phases. The UI/data boundary will be replaced by real REST + WebSocket services in the backend phases.
