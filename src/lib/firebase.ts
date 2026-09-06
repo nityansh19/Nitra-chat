@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAHyMPD2Wo5bYlZ5mu2zOoUU0nUAaC7tsY",
@@ -23,6 +24,10 @@ export function getFirebaseAuth(): Auth {
 
 export function getFirebaseDb(): Firestore {
   return getFirestore(requireFirebaseApp());
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  return getStorage(requireFirebaseApp());
 }
 
 export default requireFirebaseApp;
