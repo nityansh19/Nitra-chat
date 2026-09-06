@@ -1,0 +1,96 @@
+name: Repair message navigation
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor == 'Nityansh-19'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch message navigation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          connections = Path('src/app/connections/page.tsx')
+          text = connections.read_text()
+          old = '''  async function messageFriend(person: UserProfile) {
+    if (!currentUser?.uid) return;
+    setActionId(person.uid);
+    try {
+      await findOrCreateDirectConversation(currentUser.uid, person.uid);
+      window.location.href = "/";
+    } catch (err) { setError(mapFirestoreError(err)); }
+    finally { setActionId(""); }
+  }'''
+          new = '''  async function messageFriend(person: UserProfile) {
+    if (!currentUser?.uid) return setError("Sign in again before starting a conversation.");
+    setActionId(person.uid); setError("");
+    try {
+      await findOrCreateDirectConversation(currentUser.uid, person.uid);
+      localStorage.setItem("nitra-open-chat", JSON.stringify({
+        id: person.uid,
+        name: person.name,
+        initials: person.initials,
+        email: person.email,
+        nitraId: person.nitraId,
+        bio: person.bio || "",
+        status: person.status || "Available",
+        online: true,
+      }));
+      window.location.href = "/";
+    } catch (err) { setError(mapFirestoreError(err)); }
+    finally { setActionId(""); }
+  }'''
+          if old not in text:
+              raise SystemExit('connections messageFriend block not found')
+          connections.write_text(text.replace(old, new))
+
+          page = Path('src/app/page.tsx')
+          text = page.read_text()
+          old = '''  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);
+  useEffect(() => { if (activeId) requestAnimationFrame(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" })); }, [activeId, chats]);'''
+          new = '''  useEffect(() => {
+    if (!ready) return;
+    const raw = localStorage.getItem("nitra-open-chat");
+    if (!raw) return;
+    try {
+      const contact = JSON.parse(raw) as Contact;
+      const id = `chat-${contact.id}`;
+      setChats((prev) => {
+        if (prev.some((chat) => chat.id === id)) return prev;
+        return [...prev, { id, contact, messages: [], unread: 0, lastTime: "New" }];
+      });
+      setActiveId(id);
+      setTab("inbox");
+    } catch {
+      // Ignore malformed navigation state.
+    } finally {
+      localStorage.removeItem("nitra-open-chat");
+    }
+  }, [ready]);
+  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);
+  useEffect(() => { if (activeId) requestAnimationFrame(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" })); }, [activeId, chats]);'''
+          if old not in text:
+              raise SystemExit('home effect anchor not found')
+          page.write_text(text.replace(old, new))
+          PY
+
+      - name: Commit repair and remove one-time workflow
+        run: |
+          git config user.name "Nityansh bahadur"
+          git config user.email "118417867+Nityansh-19@users.noreply.github.com"
+          rm -f .github/workflows/fix-message-navigation.yml
+          git add src/app/connections/page.tsx src/app/page.tsx .github/workflows/fix-message-navigation.yml
+          git commit -m "fix: open conversations from friends" || exit 0
+          git push
