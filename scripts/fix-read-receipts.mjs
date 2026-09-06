@@ -34,7 +34,7 @@ export async function markConversationRead(conversationId: string, uid: string) 
   if (!authUser || authUser.uid !== uid) return;
   try {
     await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), {
-      [\`readBy.\${uid}\`]: serverTimestamp(),
+      ["readBy." + uid]: serverTimestamp(),
     });
   } catch {
     // The UI still clears its local badge. A later conversation snapshot will retry.
