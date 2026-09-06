@@ -43,8 +43,18 @@ export async function createUserProfile(profile: UserProfile) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserProfile>) {
+  const authUser = getFirebaseAuth().currentUser;
+  if (!authUser) throw Object.assign(new Error("You are not signed in to Firebase."), { code: "auth/not-signed-in" });
+  if (authUser.uid !== uid) throw Object.assign(new Error("Your Nitra session is out of sync. Please sign in again."), { code: "auth/session-mismatch" });
+
   const { uid: _uid, ...safePatch } = patch;
-  await updateDoc(doc(getFirebaseDb(), "users", uid), { ...safePatch, updatedAt: serverTimestamp() });
+  // Merge instead of updateDoc: this also repairs accounts whose initial
+  // Firestore profile write was missed during registration.
+  await setDoc(
+    doc(getFirebaseDb(), "users", uid),
+    { ...safePatch, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function searchUsers(search: string, currentUid?: string): Promise<UserProfile[]> {
@@ -110,11 +120,6 @@ export async function findOrCreateDirectConversation(uid: string, otherUid: stri
   const canonicalId = getCanonicalDirectConversationId(currentUid, otherUid);
   const canonicalRef = doc(getFirebaseDb(), "conversations", canonicalId);
   const canonical = await getDoc(canonicalRef);
-
-  // From this point on, every new message between the two users uses exactly
-  // one deterministic room. Old legacy rooms are deliberately left readable,
-  // but are never selected for new writes. This prevents A and B from writing
-  // to different conversation documents.
   if (!canonical.exists()) {
     await setDoc(canonicalRef, {
       type: "direct", participantIds: [currentUid, otherUid], directKey,
