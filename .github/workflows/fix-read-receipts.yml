@@ -37,11 +37,12 @@ jobs:
 
           rules = Path('firebase/firestore.rules')
           r = rules.read_text()
-          old_rule = '''      allow update, delete: if isParticipant(conversationId)\n        && resource.data.senderId == request.auth.uid;'''
-          new_rule = '''      allow update, delete: if isParticipant(conversationId)\n        && (\n          resource.data.senderId == request.auth.uid\n          || (\n            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])\n            && resource.data.senderId != request.auth.uid\n          )\n        );'''
-          if old_rule not in r:
+          rule_pattern = r"allow update, delete: if isParticipant\(conversationId\)\s*&& resource\.data\.senderId == request\.auth\.uid;"
+          new_rule = '''allow update, delete: if isParticipant(conversationId)\n          && (\n            resource.data.senderId == request.auth.uid\n            || (\n              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])\n              && resource.data.senderId != request.auth.uid\n            )\n          );'''
+          r, n = re.subn(rule_pattern, new_rule, r, count=1)
+          if n != 1:
               raise SystemExit('message update rule not found')
-          rules.write_text(r.replace(old_rule, new_rule))
+          rules.write_text(r)
 
           page = Path('src/app/page.tsx')
           p = page.read_text()
@@ -53,18 +54,16 @@ jobs:
               '{mine && <CheckCheck size={11} />}',
               '{mine && <CheckCheck size={11} className={message.read ? "text-sky-400" : "text-white/30"} />}'
           )
-
-          # Add read state when Firestore messages are mapped into the UI.
           pattern = r'(from: item\.senderId === user\.uid \? "me" : "them",\s*text: item\.text,\s*time: formatFirebaseTime\(item\.createdAt\))'
           replacement = r'\1,\n        read: Boolean(item.readAt),'
           p, n = re.subn(pattern, replacement, p, count=1)
           if n != 1:
               raise SystemExit('message mapping block not found')
-
-          # Opening a chat should clear its local unread badge immediately.\n          # Realtime readAt updates then keep both browsers synchronized.
-          p = p.replace(
-              'setChats((prev) => prev.map((chat) => chat.id === active.id ? { ...chat, messages: mapped } : chat));',
-              'setChats((prev) => prev.map((chat) => chat.id === active.id ? { ...chat, messages: mapped, unread: 0 } : chat));'
+          p = re.sub(
+              r'setChats\(\(prev\) => prev\.map\(\(chat\) => chat\.id === active\.id \? \{ \.\.\.chat, messages: mapped \} : chat\)\);',
+              'setChats((prev) => prev.map((chat) => chat.id === active.id ? { ...chat, messages: mapped, unread: 0 } : chat));',
+              p,
+              count=1,
           )
           page.write_text(p)
       - name: Build check
