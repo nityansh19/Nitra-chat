@@ -6,85 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Repair friend message navigation
-        if: github.event_name == 'push'
-        shell: python
-        run: |
-          from pathlib import Path
-
-          connections = Path("src/app/connections/page.tsx")
-          text = connections.read_text()
-          old = '''  async function messageFriend(person: UserProfile) {
-    if (!currentUser?.uid) return;
-    setActionId(person.uid);
-    try {
-      await findOrCreateDirectConversation(currentUser.uid, person.uid);
-      window.location.href = "/";
-    } catch (err) { setError(mapFirestoreError(err)); }
-    finally { setActionId(""); }
-  }'''
-          new = '''  async function messageFriend(person: UserProfile) {
-    if (!currentUser?.uid) return setError("Sign in again before starting a conversation.");
-    setActionId(person.uid); setError("");
-    try {
-      await findOrCreateDirectConversation(currentUser.uid, person.uid);
-      localStorage.setItem("nitra-open-chat", JSON.stringify({ id: person.uid, name: person.name, initials: person.initials, email: person.email, nitraId: person.nitraId, bio: person.bio || "", status: person.status || "Available", online: true }));
-      window.location.href = "/";
-    } catch (err) { setError(mapFirestoreError(err)); }
-    finally { setActionId(""); }
-  }'''
-          if old in text:
-              connections.write_text(text.replace(old, new, 1))
-
-          page = Path("src/app/page.tsx")
-          text = page.read_text()
-          anchor = '  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);'
-          insertion = '''  useEffect(() => {
-    if (!ready) return;
-    const raw = localStorage.getItem("nitra-open-chat");
-    if (!raw) return;
-    try {
-      const contact = JSON.parse(raw) as Contact;
-      const id = `chat-${contact.id}`;
-      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, messages: [], unread: 0, lastTime: "New" }]);
-      setActiveId(id);
-      setTab("inbox");
-    } catch {
-      // Ignore malformed navigation state.
-    } finally {
-      localStorage.removeItem("nitra-open-chat");
-    }
-  }, [ready]);
-'''
-          if anchor in text and 'nitra-open-chat' not in text:
-              page.write_text(text.replace(anchor, insertion + anchor, 1))
-
-          workflow = Path(".github/workflows/build.yml")
-          clean_workflow = '''name: Nitra Chat Build Check
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -97,20 +18,5 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Production build
-        run: npm run build
-'''
-          workflow.write_text(clean_workflow)
-
-      - name: Commit permanent repair and clean temporary workflows
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "Nityansh bahadur"
-          git config user.email "118417867+Nityansh-19@users.noreply.github.com"
-          rm -f .github/workflows/phase2-chat-ui.yml .github/workflows/fix-message-navigation.yml
-          git add src/app/connections/page.tsx src/app/page.tsx .github/workflows/build.yml .github/workflows/phase2-chat-ui.yml .github/workflows/fix-message-navigation.yml
-          git commit -m "fix: make friend message action open chat" || true
-          git push || true
-
       - name: Production build
         run: npm run build
