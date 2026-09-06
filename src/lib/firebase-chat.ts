@@ -17,8 +17,8 @@ import {
 import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 
 export type UserProfile = { uid: string; name: string; email: string; phone?: string; nitraId: string; initials: string; bio?: string; status?: string; avatarUrl?: string; role?: string; location?: string; website?: string; privacy?: Record<string, boolean> };
-export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown };
-export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown; readAt?: unknown };
+export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown; readBy?: Record<string, unknown> };
+export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown };
 export type FriendRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type FriendRequest = { id: string; senderId: string; receiverId: string; status: FriendRequestStatus; createdAt?: unknown; updatedAt?: unknown };
 
@@ -175,8 +175,6 @@ function timestampMillis(value: unknown) {
 }
 
 export function subscribeToConversations(uid: string, callback: (items: Conversation[]) => void): Unsubscribe {
-  // Do not use orderBy here. The participantIds query is the authorization
-  // boundary, and client-side sorting avoids an unnecessary composite index.
   return onSnapshot(
     query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)),
     (snapshot) => {
@@ -185,6 +183,7 @@ export function subscribeToConversations(uid: string, callback: (items: Conversa
         .sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt));
       callback(items);
     },
+    (error) => console.error("[Nitra] conversation listener failed:", error),
   );
 }
 
@@ -192,20 +191,22 @@ export function subscribeToMessages(conversationId: string, callback: (items: Ch
   return onSnapshot(
     query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),
     (snapshot) => {
-      const items = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }));
-      callback(items);
-
-      const authUser = getFirebaseAuth().currentUser;
-      if (!authUser) return;
-      const unreadIncoming = snapshot.docs.filter((item) => {
-        const data = item.data() as Omit<ChatMessage, "id">;
-        return data.senderId !== authUser.uid && !data.readAt;
-      });
-      void Promise.all(unreadIncoming.map((item) =>
-        updateDoc(doc(getFirebaseDb(), "conversations", conversationId, "messages", item.id), { readAt: serverTimestamp() })
-      )).catch(() => undefined);
+      callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) })));
     },
+    (error) => console.error("[Nitra] message listener failed:", error),
   );
+}
+
+export async function markConversationRead(conversationId: string, uid: string) {
+  const authUser = getFirebaseAuth().currentUser;
+  if (!authUser || authUser.uid !== uid) return;
+  try {
+    await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), {
+      ["readBy." + uid]: serverTimestamp(),
+    });
+  } catch (error) {
+    console.warn("[Nitra] read receipt update failed:", error);
+  }
 }
 
 export async function sendMessage(conversationId: string, senderId: string, text: string, replyToId?: string) {
@@ -232,9 +233,6 @@ export async function sendMessage(conversationId: string, senderId: string, text
     createdAt: serverTimestamp(),
   });
 
-  // Message delivery is the critical operation. Conversation metadata is only
-  // a convenience for sorting the inbox, so a metadata-rule failure must not
-  // make an otherwise successful message look unsent to the user.
   try {
     await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), {
       lastMessageId: created.id,
@@ -242,9 +240,8 @@ export async function sendMessage(conversationId: string, senderId: string, text
       lastMessageAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-  } catch {
-    // The realtime message listener still delivers the message. The next
-    // conversation refresh will repair the inbox ordering when permissions are fixed.
+  } catch (error) {
+    console.warn("[Nitra] conversation metadata update failed:", error);
   }
 
   return created.id;
