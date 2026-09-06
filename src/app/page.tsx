@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Archive, BellOff, Bookmark, CheckCheck, ChevronRight, Info, LogOut, Menu, MessageCircle, Paperclip, Phone, Pin, Search, Send, Settings, Shield, Smile, Sparkles, Star, Trash2, UserPlus, Video, X, Zap } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { loginWithFirebase, logoutFromFirebase, registerWithFirebase } from "@/lib/firebase-auth";
+import { loginWithFirebase, logoutFromFirebase, registerWithFirebase, subscribeToFirebaseAuth } from "@/lib/firebase-auth";
 import { findOrCreateDirectConversation, getUserProfile, mapFirestoreError, sendMessage as sendFirebaseMessage, subscribeToConversations, subscribeToMessages } from "@/lib/firebase-chat";
 
 type User = { uid?: string; name: string; email: string; phone: string; id: string; initials: string; bio?: string; status?: string };
@@ -123,6 +123,7 @@ function Home() {
 
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("inbox");
@@ -138,20 +139,70 @@ function Home() {
 
   useEffect(() => {
     try {
-      const u = localStorage.getItem("nitra-demo-user");
-      if (u) setUser(JSON.parse(u));
+      localStorage.removeItem("nitra-demo-user");
       localStorage.removeItem("nitra-ui-chats-v4");
-      const c = localStorage.getItem(CHAT_STORAGE_KEY);
-      setChats(c ? JSON.parse(c) : []);
+      localStorage.removeItem(CHAT_STORAGE_KEY);
       const s = localStorage.getItem("nitra-ui-saved-v4");
       if (s) setSaved(JSON.parse(s));
     } catch {
-      setChats([]);
+      setSaved([]);
     }
     setReady(true);
   }, []);
 
-  useEffect(() => { if (ready) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats)); }, [chats, ready]);
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    const unsubscribe = subscribeToFirebaseAuth(async (firebaseUser) => {
+      if (!alive) return;
+
+      if (!firebaseUser) {
+        setUser(null);
+        setChats([]);
+        setActiveId(null);
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const profile = await getUserProfile(firebaseUser.uid);
+        if (!alive) return;
+        setUser({
+          uid: firebaseUser.uid,
+          name: profile?.name || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",
+          email: profile?.email || firebaseUser.email || "",
+          phone: profile?.phone || "",
+          id: profile?.nitraId || "@nitra_user",
+          initials: profile?.initials || (firebaseUser.displayName || "NU").split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "NU",
+          bio: profile?.bio || "",
+          status: profile?.status || "Available",
+        });
+      } catch {
+        if (!alive) return;
+        setUser({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",
+          email: firebaseUser.email || "",
+          phone: "",
+          id: "@nitra_user",
+          initials: "NU",
+          bio: "",
+          status: "Available",
+        });
+      }
+
+      setChats([]);
+      setActiveId(null);
+      setAuthReady(true);
+    });
+
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, [ready]);
+
+  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);
   useEffect(() => {
     if (!ready || !user?.uid) return;
     const unsubscribe = subscribeToConversations(user.uid, async (conversations) => {
@@ -206,9 +257,10 @@ function Home() {
     const raw = localStorage.getItem("nitra-open-chat");
     if (!raw) return;
     try {
-      const contact = JSON.parse(raw) as Contact;
+      const stored = JSON.parse(raw) as Contact & { conversationId?: string };
+      const { conversationId, ...contact } = stored;
       const id = `chat-${contact.id}`;
-      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, messages: [], unread: 0, lastTime: "New" }]);
+      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, firebaseConversationId: conversationId, messages: [], unread: 0, lastTime: "New" }]);
       setActiveId(id);
       setTab("inbox");
     } catch {
@@ -237,11 +289,8 @@ function Home() {
     const text = (override ?? message).trim();
     if (!text || !active || !user?.uid) return;
     try {
-      let conversationId = active.firebaseConversationId;
-      if (!conversationId) {
-        conversationId = await findOrCreateDirectConversation(user.uid, active.contact.id);
-        setChats((p) => p.map((c) => c.id === active.id ? { ...c, firebaseConversationId: conversationId } : c));
-      }
+      const conversationId = await findOrCreateDirectConversation(user.uid, active.contact.id);
+      setChats((p) => p.map((c) => c.id === active.id ? { ...c, firebaseConversationId: conversationId } : c));
       await sendFirebaseMessage(conversationId, user.uid, text);
       setMessage("");
       setPicker(false);
@@ -258,7 +307,7 @@ function Home() {
     notify(`Conversation with ${contact.name} created`);
   };
 
-  if (!ready) return <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-white/30">Loading Nitra…</div>;
+  if (!ready || !authReady) return <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-white/30">Loading Nitra…</div>;
   if (!user) return <AuthScreen onLogin={setUser} />;
 
   return <main className="h-[100dvh] overflow-hidden bg-[#07080c] text-white noise-bg">
