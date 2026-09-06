@@ -1,13 +1,36 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ["./src/pages/**/*.{js,ts,jsx,tsx,mdx}", "./src/components/**/*.{js,ts,jsx,tsx,mdx}", "./src/app/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
-      colors: { ink: "#08090d", panel: "#0d0f14", line: "rgba(255,255,255,.08)" },
-      boxShadow: { glow: "0 0 40px rgba(120,150,255,.12)" }
-    }
+      colors: {
+        ink: "var(--nitra-bg)",
+        panel: "var(--nitra-bg-elevated)",
+        line: "var(--nitra-line)",
+        nitra: {
+          accent: "var(--nitra-accent)",
+          cyan: "var(--nitra-cyan)",
+          success: "var(--nitra-success)",
+          danger: "var(--nitra-danger)",
+          warning: "var(--nitra-warning)",
+        },
+      },
+      borderRadius: {
+        nitra: "var(--nitra-radius-md)",
+      },
+      boxShadow: {
+        glow: "var(--nitra-shadow-glow)",
+        "nitra-sm": "var(--nitra-shadow-sm)",
+        "nitra-md": "var(--nitra-shadow-md)",
+        "nitra-lg": "var(--nitra-shadow-lg)",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };
+
 export default config;

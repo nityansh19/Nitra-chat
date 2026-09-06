@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./nitra-premium.css";
+import "./nitra-theme.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Nitra Chat",
-  description: "A premium real-time communication workspace."
+  description: "A premium real-time communication workspace.",
 };
 
 const firebaseClientConfig = {
@@ -22,7 +22,7 @@ const firebaseClientConfig = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
+      <body className="nitra-canvas">
         <script
           dangerouslySetInnerHTML={{
             __html: `window.__NITRA_FIREBASE_CONFIG__=${JSON.stringify(firebaseClientConfig)};`,
