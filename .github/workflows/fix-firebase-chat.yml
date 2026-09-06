@@ -1,0 +1,76 @@
+name: Fix Firebase Chat Identity
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch chat identity and stale state
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/app/page.tsx")
+          text = path.read_text()
+
+          old_import = 'import { loginWithFirebase, logoutFromFirebase, registerWithFirebase } from "@/lib/firebase-auth";'
+          new_import = 'import { loginWithFirebase, logoutFromFirebase, registerWithFirebase, subscribeToFirebaseAuth } from "@/lib/firebase-auth";'
+          if old_import not in text:
+              raise SystemExit("firebase-auth import pattern not found")
+          text = text.replace(old_import, new_import, 1)
+
+          old_state = '  const [user, setUser] = useState<User | null>(null);\n  const [ready, setReady] = useState(false);'
+          new_state = '  const [user, setUser] = useState<User | null>(null);\n  const [ready, setReady] = useState(false);\n  const [authReady, setAuthReady] = useState(false);'
+          if old_state not in text:
+              raise SystemExit("state pattern not found")
+          text = text.replace(old_state, new_state, 1)
+
+          old_init = '''  useEffect(() => {\n    try {\n      const u = localStorage.getItem("nitra-demo-user");\n      if (u) setUser(JSON.parse(u));\n      localStorage.removeItem("nitra-ui-chats-v4");\n      const c = localStorage.getItem(CHAT_STORAGE_KEY);\n      setChats(c ? JSON.parse(c) : []);\n      const s = localStorage.getItem("nitra-ui-saved-v4");\n      if (s) setSaved(JSON.parse(s));\n    } catch {\n      setChats([]);\n    }\n    setReady(true);\n  }, []);\n\n  useEffect(() => { if (ready) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats)); }, [chats, ready]);'''
+          new_init = '''  useEffect(() => {\n    try {\n      localStorage.removeItem("nitra-demo-user");\n      localStorage.removeItem("nitra-ui-chats-v4");\n      localStorage.removeItem(CHAT_STORAGE_KEY);\n      const s = localStorage.getItem("nitra-ui-saved-v4");\n      if (s) setSaved(JSON.parse(s));\n    } catch {\n      setSaved([]);\n    }\n    setReady(true);\n  }, []);\n\n  useEffect(() => {\n    if (!ready) return;\n    let alive = true;\n    const unsubscribe = subscribeToFirebaseAuth(async (firebaseUser) => {\n      if (!alive) return;\n\n      if (!firebaseUser) {\n        setUser(null);\n        setChats([]);\n        setActiveId(null);\n        setAuthReady(true);\n        return;\n      }\n\n      try {\n        const profile = await getUserProfile(firebaseUser.uid);\n        if (!alive) return;\n        setUser({\n          uid: firebaseUser.uid,\n          name: profile?.name || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",\n          email: profile?.email || firebaseUser.email || "",\n          phone: profile?.phone || "",\n          id: profile?.nitraId || "@nitra_user",\n          initials: profile?.initials || (firebaseUser.displayName || "NU").split(/\\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "NU",\n          bio: profile?.bio || "",\n          status: profile?.status || "Available",\n        });\n      } catch {\n        if (!alive) return;\n        setUser({\n          uid: firebaseUser.uid,\n          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",\n          email: firebaseUser.email || "",\n          phone: "",\n          id: "@nitra_user",\n          initials: "NU",\n          bio: "",\n          status: "Available",\n        });\n      }\n\n      setChats([]);\n      setActiveId(null);\n      setAuthReady(true);\n    });\n\n    return () => {\n      alive = false;\n      unsubscribe();\n    };\n  }, [ready]);\n\n  useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);'''
+          if old_init not in text:
+              raise SystemExit("initialization block not found")
+          text = text.replace(old_init, new_init, 1)
+
+          old_open = '''      const contact = JSON.parse(raw) as Contact;\n      const id = `chat-${contact.id}`;\n      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, messages: [], unread: 0, lastTime: "New" }]);'''
+          new_open = '''      const stored = JSON.parse(raw) as Contact & { conversationId?: string };\n      const { conversationId, ...contact } = stored;\n      const id = `chat-${contact.id}`;\n      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, firebaseConversationId: conversationId, messages: [], unread: 0, lastTime: "New" }]);'''
+          if old_open not in text:
+              raise SystemExit("open-chat block not found")
+          text = text.replace(old_open, new_open, 1)
+
+          old_send = '''      let conversationId = active.firebaseConversationId;\n      if (!conversationId) {\n        conversationId = await findOrCreateDirectConversation(user.uid, active.contact.id);\n        setChats((p) => p.map((c) => c.id === active.id ? { ...c, firebaseConversationId: conversationId } : c));\n      }\n      await sendFirebaseMessage(conversationId, user.uid, text);'''
+          new_send = '''      const conversationId = await findOrCreateDirectConversation(user.uid, active.contact.id);\n      setChats((p) => p.map((c) => c.id === active.id ? { ...c, firebaseConversationId: conversationId } : c));\n      await sendFirebaseMessage(conversationId, user.uid, text);'''
+          if old_send not in text:
+              raise SystemExit("send block not found")
+          text = text.replace(old_send, new_send, 1)
+
+          old_render = '  if (!ready) return <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-white/30">Loading Nitra…</div>;'
+          new_render = '  if (!ready || !authReady) return <div className="flex min-h-screen items-center justify-center bg-[#07080c] text-white/30">Loading Nitra…</div>;'
+          if old_render not in text:
+              raise SystemExit("render guard not found")
+          text = text.replace(old_render, new_render, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Build check
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-firebase-chat.yml
+          git add src/app/page.tsx
+          git commit -m "fix Firebase chat identity and stale conversation state"
+          git push
