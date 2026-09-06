@@ -61,7 +61,9 @@ export async function searchUsers(search: string, currentUid?: string): Promise<
 export async function getFriendRequestBetween(uid: string, otherUid: string): Promise<FriendRequest | null> {
   const a = await getDocs(query(getFriendRequestsRef(), where("senderId", "==", uid), where("receiverId", "==", otherUid), limit(10)));
   const b = await getDocs(query(getFriendRequestsRef(), where("senderId", "==", otherUid), where("receiverId", "==", uid), limit(10)));
-  return [...a.docs, ...b.docs].map((item) => ({ id: item.id, ...(item.data() as Omit<FriendRequest, "id">) }).find((item) => item.status === "pending" || item.status === "accepted") || null;
+  return [...a.docs, ...b.docs]
+    .map((item) => ({ id: item.id, ...(item.data() as Omit<FriendRequest, "id">) }))
+    .find((item) => item.status === "pending" || item.status === "accepted") || null;
 }
 
 export async function sendFriendRequest(senderId: string, receiverId: string) {
