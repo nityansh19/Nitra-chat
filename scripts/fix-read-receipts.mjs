@@ -113,6 +113,10 @@ patchFile(pagePath, (source) => {
 
   if (p.includes(oldMap)) p = p.replace(oldMap, newMap);
 
+  const oldDeps = '  }, [ready, user?.uid, chats.map((chat) => chat.firebaseConversationId).join(","), activeId]);';
+  const newDeps = '  }, [ready, user?.uid, chats.map((chat) => `${chat.firebaseConversationId}:${JSON.stringify(chat.readBy || {})}`).join(","), activeId]);';
+  p = p.replace(oldDeps, newDeps);
+
   if (!p.includes("markConversationRead(active.firebaseConversationId")) {
     const marker = "  const active = chats.find(c => c.id === activeId) || null;";
     const effect = `  const active = chats.find(c => c.id === activeId) || null;
