@@ -1,0 +1,38 @@
+name: Fix Firebase auth state
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch connections auth source of truth
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/connections/page.tsx')
+          s = p.read_text()
+          s = s.replace('import { useEffect, useMemo, useState } from "react";\n', 'import { useEffect, useMemo, useState } from "react";\nimport { subscribeToFirebaseAuth } from "@/lib/firebase-auth";\n')
+          old = '''  useEffect(() => {\n    try {\n      const saved = localStorage.getItem("nitra-demo-user");\n      if (!saved) return;\n      const user = JSON.parse(saved);\n      if (user.uid) setCurrentUser({ uid: user.uid, name: user.name, email: user.email, phone: user.phone || "", nitraId: user.id || user.nitraId || "@nitra_user", initials: user.initials || "NU", bio: user.bio || "", status: user.status || "Available" });\n    } catch { setCurrentUser(null); }\n  }, []);\n'''
+          new = '''  useEffect(() => {\n    let alive = true;\n    const unsubscribe = subscribeToFirebaseAuth(async (firebaseUser) => {\n      if (!alive) return;\n      if (!firebaseUser) {\n        setCurrentUser(null);\n        return;\n      }\n\n      try {\n        const profile = await getUserProfile(firebaseUser.uid);\n        if (!alive) return;\n        setCurrentUser(profile ?? {\n          uid: firebaseUser.uid,\n          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",\n          email: firebaseUser.email || "",\n          phone: "",\n          nitraId: "@nitra_user",\n          initials: (firebaseUser.displayName || "NU")\n            .split(/\\s+/)\n            .slice(0, 2)\n            .map((part) => part[0]?.toUpperCase() || "")\n            .join("") || "NU",\n          status: "Available",\n        });\n      } catch {\n        if (!alive) return;\n        setCurrentUser({\n          uid: firebaseUser.uid,\n          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",\n          email: firebaseUser.email || "",\n          phone: "",\n          nitraId: "@nitra_user",\n          initials: "NU",\n          status: "Available",\n        });\n      }\n    });\n    return () => { alive = false; unsubscribe(); };\n  }, []);\n'''
+          if old not in s:
+              raise SystemExit('Expected localStorage auth block was not found')
+          p.write_text(s.replace(old, new))
+          PY
+      - name: Commit and remove patch workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/connections/page.tsx .github/workflows/fix-firebase-auth-state.yml
+          git rm .github/workflows/fix-firebase-auth-state.yml
+          git commit -m "fix: use Firebase auth state for connections"
+          git push
