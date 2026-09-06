@@ -9,7 +9,7 @@ import { findOrCreateDirectConversation, getUserProfile, mapFirestoreError, send
 
 type User = { uid?: string; name: string; email: string; phone: string; id: string; initials: string; bio?: string; status?: string };
 type Contact = { id: string; name: string; initials: string; email: string; nitraId: string; bio?: string; status?: string; online?: boolean };
-type Message = { id: number; from: "me" | "them"; text: string; time: string; reactions?: string[] };
+type Message = { id: number; from: "me" | "them"; text: string; time: string; reactions?: string[]; read?: boolean };
 type Chat = { id: string; contact: Contact; messages: Message[]; pinned?: boolean; muted?: boolean; archived?: boolean; unread: number; lastTime: string; firebaseConversationId?: string };
 type Tab = "inbox" | "starred" | "saved" | "archive";
 
@@ -94,7 +94,7 @@ function EmojiPicker({ onSelect, onClose }: { onSelect: (value: string) => void;
 
 function MessageBubble({ message, onReact, onSave, onDelete }: { message: Message; onReact: (emoji: string) => void; onSave: () => void; onDelete: () => void }) {
   const mine = message.from === "me";
-  return <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="relative max-w-[86%] sm:max-w-[72%]"><div className={`rounded-[20px] px-4 py-3 text-sm leading-6 ${mine ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{message.text}</p></div><div className={`mt-1 flex items-center gap-2 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}><span>{message.time}</span>{mine && <CheckCheck size={11} />}</div>{message.reactions?.length ? <div className={`absolute -bottom-3 ${mine ? "right-2" : "left-2"} rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs`}>{message.reactions.join(" ")}</div> : null}<div className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 rounded-xl border border-white/10 bg-[#12141a] p-1 shadow-xl group-hover:flex ${mine ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"}`}><button onClick={() => onReact("❤️")} className="h-7 w-7">❤️</button><button onClick={() => onReact("🔥")} className="h-7 w-7">🔥</button><button onClick={onSave} className="h-7 w-7"><Bookmark size={14} /></button>{mine && <button onClick={onDelete} className="h-7 w-7 text-red-300"><Trash2 size={14} /></button>}</div></div></motion.div>;
+  return <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="relative max-w-[86%] sm:max-w-[72%]"><div className={`rounded-[20px] px-4 py-3 text-sm leading-6 ${mine ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{message.text}</p></div><div className={`mt-1 flex items-center gap-2 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}><span>{message.time}</span>{mine && <CheckCheck size={11} className={message.read ? "text-sky-400" : "text-white/30"} />}</div>{message.reactions?.length ? <div className={`absolute -bottom-3 ${mine ? "right-2" : "left-2"} rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs`}>{message.reactions.join(" ")}</div> : null}<div className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 rounded-xl border border-white/10 bg-[#12141a] p-1 shadow-xl group-hover:flex ${mine ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"}`}><button onClick={() => onReact("❤️")} className="h-7 w-7">❤️</button><button onClick={() => onReact("🔥")} className="h-7 w-7">🔥</button><button onClick={onSave} className="h-7 w-7"><Bookmark size={14} /></button>{mine && <button onClick={onDelete} className="h-7 w-7 text-red-300"><Trash2 size={14} /></button>}</div></div></motion.div>;
 }
 
 function hashMessageId(value: string) {
@@ -243,9 +243,10 @@ function Home() {
             from: m.senderId === user.uid ? "me" : "them",
             text: m.text,
             time: formatFirebaseTime(m.createdAt),
+            read: Boolean(m.readAt),
           }));
           const last = messages.at(-1);
-          return { ...current, messages, lastTime: last?.time || current.lastTime, unread: activeId === current.id ? 0 : messages.filter((m) => m.from === "them").length };
+          return { ...current, messages, lastTime: last?.time || current.lastTime, unread: activeId === current.id ? 0 : messages.filter((m) => m.from === "them" && !m.read).length };
         }));
       }));
     });

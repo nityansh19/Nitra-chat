@@ -18,7 +18,7 @@ import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 
 export type UserProfile = { uid: string; name: string; email: string; phone?: string; nitraId: string; initials: string; bio?: string; status?: string; avatarUrl?: string; role?: string; location?: string; website?: string; privacy?: Record<string, boolean> };
 export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown };
-export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown };
+export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown; readAt?: unknown };
 export type FriendRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type FriendRequest = { id: string; senderId: string; receiverId: string; status: FriendRequestStatus; createdAt?: unknown; updatedAt?: unknown };
 
@@ -191,7 +191,20 @@ export function subscribeToConversations(uid: string, callback: (items: Conversa
 export function subscribeToMessages(conversationId: string, callback: (items: ChatMessage[]) => void): Unsubscribe {
   return onSnapshot(
     query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),
-    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }))),
+    (snapshot) => {
+      const items = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }));
+      callback(items);
+
+      const authUser = getFirebaseAuth().currentUser;
+      if (!authUser) return;
+      const unreadIncoming = snapshot.docs.filter((item) => {
+        const data = item.data() as Omit<ChatMessage, "id">;
+        return data.senderId !== authUser.uid && !data.readAt;
+      });
+      void Promise.all(unreadIncoming.map((item) =>
+        updateDoc(doc(getFirebaseDb(), "conversations", conversationId, "messages", item.id), { readAt: serverTimestamp() })
+      )).catch(() => undefined);
+    },
   );
 }
 
