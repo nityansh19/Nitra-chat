@@ -3,10 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "predev": "node scripts/fix-read-receipts.mjs",
-    "build": "next build",
-    "prebuild": "node scripts/fix-read-receipts.mjs",
+    "dev": "node scripts/fix-read-receipts.mjs && next dev",
+    "build": "node scripts/fix-read-receipts.mjs && next build",
     "start": "next start",
     "lint": "eslint ."
   },
