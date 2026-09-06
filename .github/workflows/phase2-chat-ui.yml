@@ -1,0 +1,111 @@
+name: Apply Nitra Phase 2 Chat UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, 'Phase 2:') == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch chat experience
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('src/app/page.tsx')
+          text = path.read_text()
+
+          old = '''function MessageBubble({ message, onReact, onSave, onDelete }: { message: Message; onReact: (emoji: string) => void; onSave: () => void; onDelete: () => void }) {
+            const mine = message.from === "me";
+            return <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="relative max-w-[86%] sm:max-w-[72%]"><div className={`rounded-[20px] px-4 py-3 text-sm leading-6 ${mine ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{message.text}</p></div><div className={`mt-1 flex items-center gap-2 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}><span>{message.time}</span>{mine && <CheckCheck size={11} />}</div>{message.reactions?.length ? <div className={`absolute -bottom-3 ${mine ? "right-2" : "left-2"} rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs`}>{message.reactions.join(" ")}</div> : null}<div className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 rounded-xl border border-white/10 bg-[#12141a] p-1 shadow-xl group-hover:flex ${mine ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"}`}><button onClick={() => onReact("❤️")} className="h-7 w-7">❤️</button><button onClick={() => onReact("🔥")} className="h-7 w-7">🔥</button><button onClick={onSave} className="h-7 w-7"><Bookmark size={14} /></button>{mine && <button onClick={onDelete} className="h-7 w-7 text-red-300"><Trash2 size={14} /></button>}</div></div></motion.div>;
+          }'''
+
+          new = '''function MessageBubble({ message, grouped = false, onReact, onSave, onDelete, onCopy }: { message: Message; grouped?: boolean; onReact: (emoji: string) => void; onSave: () => void; onDelete: () => void; onCopy: () => void }) {
+            const mine = message.from === "me";
+            return <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"} ${grouped ? "mt-1" : "mt-3"}`}>
+              <div className={`relative flex max-w-[88%] items-end gap-2 sm:max-w-[74%] ${mine ? "flex-row-reverse" : "flex-row"}`}>
+                <div className={`min-w-0 ${mine ? "items-end" : "items-start"}`}>
+                  <div className={`relative px-4 py-2.5 text-sm leading-6 shadow-sm ${grouped ? (mine ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md") : (mine ? "rounded-[21px] rounded-br-md" : "rounded-[21px] rounded-bl-md")} ${mine ? "bg-white text-black" : "border border-white/[.07] bg-white/[.045] text-white/85"}`}>
+                    <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                  </div>
+                  <div className={`mt-1 flex items-center gap-1.5 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}>
+                    <span>{message.time}</span>{mine && <CheckCheck size={11} className="text-white/35" />}
+                  </div>
+                  {message.reactions?.length ? <div className={`relative z-10 -mt-1 w-fit rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs shadow-lg ${mine ? "ml-auto" : "mr-auto"}`}>{message.reactions.join(" ")}</div> : null}
+                </div>
+                <div className={`absolute top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-xl border border-white/10 bg-[#12141a]/95 p-1 shadow-2xl backdrop-blur-xl group-hover:flex ${mine ? "right-[calc(100%+6px)]" : "left-[calc(100%+6px)]"}`}>
+                  <button type="button" onClick={() => onReact("❤️")} aria-label="React with heart" className="h-7 w-7 rounded-lg text-sm transition hover:bg-white/[.08]">❤️</button>
+                  <button type="button" onClick={() => onReact("🔥")} aria-label="React with fire" className="h-7 w-7 rounded-lg text-sm transition hover:bg-white/[.08]">🔥</button>
+                  <button type="button" onClick={onCopy} aria-label="Copy message" className="flex h-7 w-7 items-center justify-center rounded-lg text-white/45 transition hover:bg-white/[.08] hover:text-white"><Copy size={13} /></button>
+                  <button type="button" onClick={onSave} aria-label="Save message" className="flex h-7 w-7 items-center justify-center rounded-lg text-white/45 transition hover:bg-white/[.08] hover:text-white"><Bookmark size={13} /></button>
+                  {mine && <button type="button" onClick={onDelete} aria-label="Delete message" className="flex h-7 w-7 items-center justify-center rounded-lg text-red-300/60 transition hover:bg-red-400/10 hover:text-red-200"><Trash2 size={13} /></button>}
+                </div>
+              </div>
+            </motion.div>;
+          }'''
+
+          if old not in text:
+              raise SystemExit('MessageBubble target not found')
+          text = text.replace(old, new, 1)
+
+          text = text.replace(
+              'const [toast, setToast] = useState(""); const [saved, setSaved] = useState<number[]>([]); const inputRef',
+              'const [toast, setToast] = useState(""); const [saved, setSaved] = useState<number[]>([]); const [showScrollButton, setShowScrollButton] = useState(false); const inputRef',
+              1,
+          )
+
+          text = text.replace(
+              'useEffect(() => { if (activeId) requestAnimationFrame(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" })); }, [activeId, chats]);',
+              'useEffect(() => { if (activeId) requestAnimationFrame(() => { chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" }); setShowScrollButton(false); }); }, [activeId]);',
+              1,
+          )
+
+          text = text.replace(
+              'const notify = (text: string) => setToast(text);',
+              '''const notify = (text: string) => setToast(text);
+          const handleChatScroll = () => { const el = chatRef.current; if (!el) return; setShowScrollButton(el.scrollHeight - el.scrollTop - el.clientHeight > 220); };
+          const scrollToLatest = () => { chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" }); setShowScrollButton(false); };''',
+              1,
+          )
+
+          old_messages = '''<div ref={chatRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-8"><div className="mx-auto max-w-3xl"><div className="mb-8 flex items-center gap-3"><span className="h-px flex-1 bg-white/[.05]" /><span className="text-[9px] uppercase tracking-[.2em] text-white/20">Today</span><span className="h-px flex-1 bg-white/[.05]" /></div><div className="mb-8 text-center"><Avatar initials={active.contact.initials} size="lg" online={active.contact.online} /><h2 className="mt-4 text-lg font-semibold">{active.contact.name}</h2><p className="mt-1 text-xs text-white/25">{active.contact.nitraId}</p></div><div className="space-y-3">{active.messages.map(m => <MessageBubble key={m.id} message={m} onReact={emoji => setChats(p => p.map(c => c.id === active.id ? { ...c, messages: c.messages.map(x => x.id === m.id ? { ...x, reactions: x.reactions?.includes(emoji) ? x.reactions.filter(r => r !== emoji) : [...(x.reactions || []), emoji] } : x) } : c))} onSave={() => { setSaved(p => p.includes(m.id) ? p.filter(id => id !== m.id) : [...p, m.id]); notify(saved.includes(m.id) ? "Removed from saved" : "Saved message"); }} onDelete={() => setChats(p => p.map(c => c.id === active.id ? { ...c, messages: c.messages.filter(x => x.id !== m.id) } : c))} />)}</div></div></div>'''
+
+          new_messages = '''<div ref={chatRef} onScroll={handleChatScroll} className="relative min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-8"><div className="mx-auto max-w-3xl"><div className="mb-7 flex items-center gap-3"><span className="h-px flex-1 bg-white/[.05]" /><span className="rounded-full border border-white/[.06] bg-white/[.02] px-2.5 py-1 text-[9px] uppercase tracking-[.2em] text-white/20">Today</span><span className="h-px flex-1 bg-white/[.05]" /></div><div className="mb-8 text-center"><Avatar initials={active.contact.initials} size="lg" online={active.contact.online} /><h2 className="mt-4 text-lg font-semibold">{active.contact.name}</h2><p className="mt-1 text-xs text-white/25">{active.contact.nitraId}</p><p className="mt-3 text-[10px] text-white/20">This is the beginning of your conversation.</p></div>{active.messages.length ? <div className="pb-2">{active.messages.map((m, index) => <MessageBubble key={m.id} message={m} grouped={index > 0 && active.messages[index - 1]?.from === m.from} onReact={emoji => setChats(p => p.map(c => c.id === active.id ? { ...c, messages: c.messages.map(x => x.id === m.id ? { ...x, reactions: x.reactions?.includes(emoji) ? x.reactions.filter(r => r !== emoji) : [...(x.reactions || []), emoji] } : x) } : c))} onSave={() => { setSaved(p => p.includes(m.id) ? p.filter(id => id !== m.id) : [...p, m.id]); notify(saved.includes(m.id) ? "Removed from saved" : "Saved message"); }} onDelete={() => setChats(p => p.map(c => c.id === active.id ? { ...c, messages: c.messages.filter(x => x.id !== m.id) } : c))} onCopy={() => { navigator.clipboard?.writeText(m.text); notify("Message copied"); }} />)}</div> : <div className="rounded-2xl border border-white/[.06] bg-white/[.02] p-5 text-center"><p className="text-xs text-white/30">No messages yet.</p><div className="mt-3 flex flex-wrap justify-center gap-2"><button type="button" onClick={() => send("Hey! 👋")} className="rounded-full border border-white/[.07] px-3 py-1.5 text-[10px] text-white/45 transition hover:bg-white/[.06]">Say hello 👋</button><button type="button" onClick={() => send("How are you?")} className="rounded-full border border-white/[.07] px-3 py-1.5 text-[10px] text-white/45 transition hover:bg-white/[.06]">How are you?</button></div></div>}</div>{showScrollButton && <button type="button" onClick={scrollToLatest} className="sticky bottom-4 left-full z-20 ml-auto flex h-9 items-center gap-2 rounded-full border border-white/10 bg-[#15171e]/95 px-3 text-[10px] text-white/65 shadow-2xl backdrop-blur-xl transition hover:bg-white/[.08]"><ChevronRight size={13} className="rotate-90" />Latest</button>}</div>'''
+
+          if old_messages not in text:
+              raise SystemExit('message list target not found')
+          text = text.replace(old_messages, new_messages, 1)
+
+          old_composer = '<textarea ref={inputRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} rows={1} placeholder={`Message ${active.contact.name.split(" ")[0]}…`} className="min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-white/20" /><button onClick={() => send()} disabled={!message.trim()} className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black disabled:bg-white/[.07] disabled:text-white/20"><Send size={16} /></button>'
+          new_composer = '<textarea ref={inputRef} value={message} onChange={e => setMessage(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} rows={1} maxLength={4000} placeholder={`Message ${active.contact.name.split(" ")[0]}…`} className="max-h-32 min-h-10 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2 text-sm leading-6 outline-none placeholder:text-white/20" /><div className="flex items-center gap-2 pr-1"><span className="hidden text-[9px] text-white/15 sm:block">{message.length}/4000</span><button type="button" onClick={() => send()} disabled={!message.trim()} aria-label="Send message" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-black shadow-lg transition hover:scale-[1.02] disabled:bg-white/[.07] disabled:text-white/20 disabled:shadow-none"><Send size={16} /></button></div>'
+          if old_composer not in text:
+              raise SystemExit('composer target not found')
+          text = text.replace(old_composer, new_composer, 1)
+
+          old_empty = '<div><Sparkles size={30} className="mx-auto text-white/40" /><h2 className="mt-5 text-2xl font-semibold">Your conversations start here.</h2><p className="mt-2 text-sm text-white/25">Pick someone from the left or start a new conversation.</p><button onClick={() => notify("Use the search/new conversation controls to connect.")} className="mt-6 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-black">Start exploring</button></div>'
+          new_empty = '<div className="max-w-md"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-white/[.08] bg-white/[.035] text-white/55 shadow-2xl"><Sparkles size={26} /></div><p className="mt-7 text-[10px] uppercase tracking-[.25em] text-white/20">Nitra / conversations</p><h2 className="mt-3 text-2xl font-semibold tracking-tight">Your conversations start here.</h2><p className="mt-2 text-sm leading-6 text-white/25">Choose someone from your inbox, find a friend, or start a fresh conversation.</p><div className="mt-6 flex flex-wrap justify-center gap-2"><Link href="/connections" className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-black transition hover:bg-white/90">Find people</Link><button type="button" onClick={() => setMobileList(true)} className="rounded-xl border border-white/[.08] px-4 py-2.5 text-xs text-white/55 transition hover:bg-white/[.05] md:hidden">Open inbox</button></div></div>'
+          if old_empty not in text:
+              raise SystemExit('empty state target not found')
+          text = text.replace(old_empty, new_empty, 1)
+
+          path.write_text(text)
+
+      - name: Commit Phase 2
+        run: |
+          git config user.name "Nityansh bahadur"
+          git config user.email "118417867+Nityansh-19@users.noreply.github.com"
+          git add src/app/page.tsx .github/workflows/phase2-chat-ui.yml
+          git rm .github/workflows/phase2-chat-ui.yml
+          git commit -m "Phase 2: polish chat messages and composer UI"
+          git push origin main
