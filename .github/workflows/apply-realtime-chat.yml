@@ -1,16 +1,14 @@
 name: Apply realtime chat fix
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
       - name: Apply patch
         run: python3 scripts/fix-realtime-chat.py
       - name: Build check
