@@ -18,7 +18,7 @@ import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 
 export type UserProfile = { uid: string; name: string; email: string; phone?: string; nitraId: string; initials: string; bio?: string; status?: string; avatarUrl?: string; role?: string; location?: string; website?: string; privacy?: Record<string, boolean> };
 export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown; readBy?: Record<string, unknown> };
-export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown };
+export type ChatMessage = { id: string; senderId: string; text: string; replyToId?: string; reactions?: Record<string, string[]>; editedAt?: unknown; deletedAt?: unknown; createdAt?: unknown; readAt?: unknown };
 export type FriendRequestStatus = "pending" | "accepted" | "declined" | "cancelled";
 export type FriendRequest = { id: string; senderId: string; receiverId: string; status: FriendRequestStatus; createdAt?: unknown; updatedAt?: unknown };
 
@@ -159,7 +159,7 @@ export async function findOrCreateDirectConversation(uid: string, otherUid: stri
     });
     if (match) return match.id;
   } catch (error) {
-    console.warn("[Nitra] conversation lookup failed, attempting to create a fresh conversation:", error);
+    console.warn("[Nitra] conversation lookup failed, creating a fresh conversation:", error);
   }
 
   return (await addDoc(getConversationsRef(), {
@@ -178,26 +178,59 @@ function timestampMillis(value: unknown) {
   return 0;
 }
 
+function resilientQueryListener<T>(
+  makeQuery: () => ReturnType<typeof query>,
+  onData: (snapshot: { docs: Array<{ id: string; data: () => Record<string, unknown> }> }) => void,
+  label: string,
+): Unsubscribe {
+  let stopped = false;
+  let unsubscribe = () => undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let delay = 1000;
+
+  const listen = () => {
+    if (stopped) return;
+    unsubscribe = onSnapshot(
+      makeQuery(),
+      (snapshot) => {
+        delay = 1000;
+        onData(snapshot as never);
+      },
+      (error) => {
+        console.error(`[Nitra] ${label} listener failed:`, error);
+        if (stopped) return;
+        retryTimer = setTimeout(listen, delay);
+        delay = Math.min(delay * 2, 10000);
+      },
+    );
+  };
+
+  listen();
+  return () => {
+    stopped = true;
+    unsubscribe();
+    if (retryTimer) clearTimeout(retryTimer);
+  };
+}
+
 export function subscribeToConversations(uid: string, callback: (items: Conversation[]) => void): Unsubscribe {
-  return onSnapshot(
-    query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)),
+  return resilientQueryListener(
+    () => query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)),
     (snapshot) => {
       const items = snapshot.docs
         .map((item) => ({ id: item.id, ...(item.data() as Omit<Conversation, "id">) }))
         .sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt));
       callback(items);
     },
-    (error) => console.error("[Nitra] conversation listener failed:", error),
+    "conversation",
   );
 }
 
 export function subscribeToMessages(conversationId: string, callback: (items: ChatMessage[]) => void): Unsubscribe {
-  return onSnapshot(
-    query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),
-    (snapshot) => {
-      callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) })));
-    },
-    (error) => console.error("[Nitra] message listener failed:", error),
+  return resilientQueryListener(
+    () => query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }))),
+    `message:${conversationId}`,
   );
 }
 
@@ -221,9 +254,9 @@ export async function sendMessage(conversationId: string, senderId: string, text
   const cleanText = text.trim();
   if (!cleanText) return null;
 
-  // Do not pre-read the conversation. The message create rule already verifies
-  // that the authenticated user belongs to the conversation. This removes an
-  // unnecessary read that could block an otherwise valid send.
+  // The message-create rule verifies conversation membership. Avoiding a
+  // separate conversation read makes sending less fragile when metadata reads
+  // are temporarily unavailable.
   const created = await addDoc(collection(getFirebaseDb(), "conversations", conversationId, "messages"), {
     senderId: authUser.uid,
     text: cleanText,
