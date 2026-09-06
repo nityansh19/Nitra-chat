@@ -1,0 +1,33 @@
+name: Repair logout patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair logout JSX if needed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/page.tsx')
+          s = p.read_text()
+          bad = '  return <main className="relative min-h-screen">\n    <button\n      type="button"\n      onClick={handleLogout}'
+          if bad in s:
+              s = s.replace('  return <main className="relative min-h-screen">\n', '', 1)
+          p.write_text(s)
+          PY
+      - name: Commit repair and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/page.tsx .github/workflows/repair-logout-patch.yml
+          git rm .github/workflows/repair-logout-patch.yml
+          git commit -m "fix: repair logout button markup"
+          git push
