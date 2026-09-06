@@ -14,7 +14,8 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { getFirebaseAuth, getFirebaseDb } from "./firebase";
+import { deleteObject, getDownloadURL, ref, uploadString } from "firebase/storage";
+import { getFirebaseAuth, getFirebaseDb, getFirebaseStorage } from "./firebase";
 
 export type UserProfile = { uid: string; name: string; email: string; phone?: string; nitraId: string; initials: string; bio?: string; status?: string; avatarUrl?: string; role?: string; location?: string; website?: string; privacy?: Record<string, boolean> };
 export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; directKey?: string; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown; readBy?: Record<string, unknown> };
@@ -42,12 +43,43 @@ export async function createUserProfile(profile: UserProfile) {
   });
 }
 
+const PROFILE_AVATAR_PATH = (uid: string) => `users/${uid}/avatar`;
+
+async function persistAvatar(uid: string, avatarUrl: string): Promise<string> {
+  const storage = getFirebaseStorage();
+  const avatarRef = ref(storage, PROFILE_AVATAR_PATH(uid));
+
+  if (!avatarUrl) {
+    try { await deleteObject(avatarRef); } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code !== "storage/object-not-found") throw error;
+    }
+    return "";
+  }
+
+  // The profile editor provides a data URL after a local image is selected.
+  // Store the binary image in Firebase Storage and only keep its download URL
+  // in Firestore. This avoids bloating the user document with base64 data.
+  if (avatarUrl.startsWith("data:image/")) {
+    await uploadString(avatarRef, avatarUrl, "data_url", {
+      cacheControl: "public,max-age=31536000,immutable",
+    });
+    return getDownloadURL(avatarRef);
+  }
+
+  // Existing remote URLs are preserved during non-image profile edits.
+  return avatarUrl;
+}
+
 export async function updateUserProfile(uid: string, patch: Partial<UserProfile>) {
   const authUser = getFirebaseAuth().currentUser;
   if (!authUser) throw Object.assign(new Error("You are not signed in to Firebase."), { code: "auth/not-signed-in" });
   if (authUser.uid !== uid) throw Object.assign(new Error("Your Nitra session is out of sync. Please sign in again."), { code: "auth/session-mismatch" });
 
   const { uid: _uid, ...safePatch } = patch;
+  const avatarUrl = typeof safePatch.avatarUrl === "string" ? await persistAvatar(uid, safePatch.avatarUrl) : undefined;
+  if (avatarUrl !== undefined) safePatch.avatarUrl = avatarUrl;
+
   // Merge instead of updateDoc: this also repairs accounts whose initial
   // Firestore profile write was missed during registration.
   await setDoc(
@@ -217,6 +249,9 @@ export function mapFirestoreError(error: unknown) {
     "auth/session-mismatch": "Your Nitra session is out of sync with Firebase. Sign out and sign in again, then try again.",
     "chat/conversation-missing": "This conversation no longer exists. Open the chat again.",
     "chat/not-participant": "This chat belongs to a different Firebase account. Open the chat again.",
+    "storage/unauthorized": "Firebase Storage denied the profile picture upload. Publish the Nitra Storage rules and try again.",
+    "storage/unauthenticated": "Your Firebase session expired. Sign in again before uploading a profile picture.",
+    "storage/quota-exceeded": "Firebase Storage has reached its quota. Try again later.",
   };
   return map[code] || ((error as { message?: string })?.message || "Something went wrong with Firebase.");
 }
