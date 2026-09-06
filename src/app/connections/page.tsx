@@ -159,8 +159,8 @@ export default function ConnectionsPage() {
     if (!currentUser?.uid) return setError("Sign in again before starting a conversation.");
     setActionId(person.uid); setError("");
     try {
-      await findOrCreateDirectConversation(currentUser.uid, person.uid);
-      localStorage.setItem("nitra-open-chat", JSON.stringify({ id: person.uid, name: person.name, initials: person.initials, email: person.email, nitraId: person.nitraId, bio: person.bio || "", status: person.status || "Available", online: true }));
+      const conversationId = await findOrCreateDirectConversation(currentUser.uid, person.uid);
+      localStorage.setItem("nitra-open-chat", JSON.stringify({ id: person.uid, name: person.name, initials: person.initials, email: person.email, nitraId: person.nitraId, bio: person.bio || "", status: person.status || "Available", online: true, conversationId }));
       window.location.href = "/";
     } catch (err) { setError(mapFirestoreError(err)); }
     finally { setActionId(""); }

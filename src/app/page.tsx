@@ -5,12 +5,12 @@ import { Archive, BellOff, Bookmark, CheckCheck, ChevronRight, Info, LogOut, Men
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { loginWithFirebase, logoutFromFirebase, registerWithFirebase } from "@/lib/firebase-auth";
-import { mapFirestoreError } from "@/lib/firebase-chat";
+import { findOrCreateDirectConversation, getUserProfile, mapFirestoreError, sendMessage as sendFirebaseMessage, subscribeToConversations, subscribeToMessages } from "@/lib/firebase-chat";
 
 type User = { uid?: string; name: string; email: string; phone: string; id: string; initials: string; bio?: string; status?: string };
 type Contact = { id: string; name: string; initials: string; email: string; nitraId: string; bio?: string; status?: string; online?: boolean };
 type Message = { id: number; from: "me" | "them"; text: string; time: string; reactions?: string[] };
-type Chat = { id: string; contact: Contact; messages: Message[]; pinned?: boolean; muted?: boolean; archived?: boolean; unread: number; lastTime: string };
+type Chat = { id: string; contact: Contact; messages: Message[]; pinned?: boolean; muted?: boolean; archived?: boolean; unread: number; lastTime: string; firebaseConversationId?: string };
 type Tab = "inbox" | "starred" | "saved" | "archive";
 
 const emojis = ["😀","😂","😍","🥹","😎","🔥","✨","❤️","🙌","👀","💀","🚀","🤝","💯","😭","😮","👍","🎉","🫡","🧠","☕","💻","⚡","🌙"];
@@ -97,6 +97,19 @@ function MessageBubble({ message, onReact, onSave, onDelete }: { message: Messag
   return <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="relative max-w-[86%] sm:max-w-[72%]"><div className={`rounded-[20px] px-4 py-3 text-sm leading-6 ${mine ? "rounded-br-md bg-white text-black" : "rounded-bl-md border border-white/[.07] bg-white/[.045] text-white/80"}`}><p>{message.text}</p></div><div className={`mt-1 flex items-center gap-2 px-1 text-[9px] text-white/20 ${mine ? "justify-end" : "justify-start"}`}><span>{message.time}</span>{mine && <CheckCheck size={11} />}</div>{message.reactions?.length ? <div className={`absolute -bottom-3 ${mine ? "right-2" : "left-2"} rounded-full border border-white/10 bg-[#161820] px-2 py-0.5 text-xs`}>{message.reactions.join(" ")}</div> : null}<div className={`absolute top-1/2 hidden -translate-y-1/2 gap-1 rounded-xl border border-white/10 bg-[#12141a] p-1 shadow-xl group-hover:flex ${mine ? "right-[calc(100%+8px)]" : "left-[calc(100%+8px)]"}`}><button onClick={() => onReact("❤️")} className="h-7 w-7">❤️</button><button onClick={() => onReact("🔥")} className="h-7 w-7">🔥</button><button onClick={onSave} className="h-7 w-7"><Bookmark size={14} /></button>{mine && <button onClick={onDelete} className="h-7 w-7 text-red-300"><Trash2 size={14} /></button>}</div></div></motion.div>;
 }
 
+function hashMessageId(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  return Math.abs(hash);
+}
+
+function formatFirebaseTime(value: unknown) {
+  try {
+    const date = value && typeof value === "object" && "toDate" in value && typeof (value as { toDate?: () => Date }).toDate === "function" ? (value as { toDate: () => Date }).toDate() : new Date();
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch { return "Now"; }
+}
+
 function Home() {
   async function handleLogout() {
     try {
@@ -140,6 +153,55 @@ function Home() {
 
   useEffect(() => { if (ready) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats)); }, [chats, ready]);
   useEffect(() => {
+    if (!ready || !user?.uid) return;
+    const unsubscribe = subscribeToConversations(user.uid, async (conversations) => {
+      const results = await Promise.all(conversations.map(async (conversation) => {
+        const otherUid = conversation.participantIds.find((id) => id !== user.uid);
+        if (!otherUid) return null;
+        const contact = await getUserProfile(otherUid);
+        if (!contact) return null;
+        return { conversation, contact };
+      }));
+      const valid = results.filter((item): item is NonNullable<typeof item> => Boolean(item));
+      setChats((prev) => {
+        const next = [...prev];
+        for (const item of valid) {
+          const id = `chat-${item.contact.uid}`;
+          const existing = next.findIndex((chat) => chat.id === id);
+          const contact: Contact = { id: item.contact.uid, name: item.contact.name, initials: item.contact.initials, email: item.contact.email, nitraId: item.contact.nitraId, bio: item.contact.bio, status: item.contact.status, online: true };
+          const chat = { id, contact, firebaseConversationId: item.conversation.id };
+          if (existing >= 0) next[existing] = { ...next[existing], ...chat };
+          else next.push({ ...chat, messages: [], unread: 0, lastTime: "New" });
+        }
+        return next;
+      });
+    });
+    return unsubscribe;
+  }, [ready, user?.uid]);
+
+  useEffect(() => {
+    if (!ready || !user?.uid) return;
+    const cleanups: (() => void)[] = [];
+    chats.filter((chat) => chat.firebaseConversationId).forEach((chat) => {
+      const conversationId = chat.firebaseConversationId!;
+      cleanups.push(subscribeToMessages(conversationId, (firebaseMessages) => {
+        setChats((prev) => prev.map((current) => {
+          if (current.firebaseConversationId !== conversationId) return current;
+          const messages: Message[] = firebaseMessages.map((m) => ({
+            id: hashMessageId(m.id),
+            from: m.senderId === user.uid ? "me" : "them",
+            text: m.text,
+            time: formatFirebaseTime(m.createdAt),
+          }));
+          const last = messages.at(-1);
+          return { ...current, messages, lastTime: last?.time || current.lastTime, unread: activeId === current.id ? 0 : messages.filter((m) => m.from === "them").length };
+        }));
+      }));
+    });
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [ready, user?.uid, chats.map((chat) => chat.firebaseConversationId).join(","), activeId]);
+
+  useEffect(() => {
     if (!ready) return;
     const raw = localStorage.getItem("nitra-open-chat");
     if (!raw) return;
@@ -171,14 +233,22 @@ function Home() {
   const notify = (text: string) => setToast(text);
   const openChat = (id: string) => { setActiveId(id); setMobileList(false); setChats(p => p.map(c => c.id === id ? { ...c, unread: 0 } : c)); };
   const updateChat = (patch: Partial<Chat>) => { if (active) setChats(p => p.map(c => c.id === active.id ? { ...c, ...patch } : c)); };
-  const send = (override?: string) => {
+  const send = async (override?: string) => {
     const text = (override ?? message).trim();
-    if (!text || !active) return;
-    const now = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    setChats(p => p.map(c => c.id === active.id ? { ...c, lastTime: now, messages: [...c.messages, { id: Date.now(), from: "me", text, time: now }] } : c));
-    setMessage("");
-    setPicker(false);
-    inputRef.current?.focus();
+    if (!text || !active || !user?.uid) return;
+    try {
+      let conversationId = active.firebaseConversationId;
+      if (!conversationId) {
+        conversationId = await findOrCreateDirectConversation(user.uid, active.contact.id);
+        setChats((p) => p.map((c) => c.id === active.id ? { ...c, firebaseConversationId: conversationId } : c));
+      }
+      await sendFirebaseMessage(conversationId, user.uid, text);
+      setMessage("");
+      setPicker(false);
+      inputRef.current?.focus();
+    } catch (err) {
+      notify(mapFirestoreError(err));
+    }
   };
   const createChat = (contact: Contact) => {
     const id = `chat-${contact.id}`;
