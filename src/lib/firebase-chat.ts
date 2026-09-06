@@ -100,13 +100,15 @@ function directConversationKey(uid: string, otherUid: string) { return [uid, oth
 export function getCanonicalDirectConversationId(uid: string, otherUid: string) { return `direct-${directConversationKey(uid, otherUid)}`; }
 
 export async function findOrCreateDirectConversation(uid: string, otherUid: string) {
-  const directKey = directConversationKey(uid, otherUid);
-  const canonicalId = getCanonicalDirectConversationId(uid, otherUid);
+  const authUser = getFirebaseAuth().currentUser;
+  const currentUid = authUser?.uid || uid;
+  const directKey = directConversationKey(currentUid, otherUid);
+  const canonicalId = getCanonicalDirectConversationId(currentUid, otherUid);
   const canonicalRef = doc(getFirebaseDb(), "conversations", canonicalId);
   const canonical = await getDoc(canonicalRef);
   if (canonical.exists()) return canonicalId;
 
-  const existing = await getDocs(query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)));
+  const existing = await getDocs(query(getConversationsRef(), where("participantIds", "array-contains", currentUid), limit(100)));
   const matches = existing.docs.filter((item) => {
     const data = item.data(); const participants = (data.participantIds || []) as string[];
     return data.type === "direct" && participants.length === 2 && participants.includes(otherUid);
@@ -119,7 +121,7 @@ export async function findOrCreateDirectConversation(uid: string, otherUid: stri
   }
 
   await setDoc(canonicalRef, {
-    type: "direct", participantIds: [uid, otherUid], directKey, lastMessageText: "",
+    type: "direct", participantIds: [currentUid, otherUid], directKey, lastMessageText: "",
     createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
   }, { merge: true });
   return canonicalId;
@@ -159,9 +161,10 @@ function resilientQueryListener(makeQuery: () => ReturnType<typeof query>, onDat
 }
 
 export function subscribeToConversations(uid: string, callback: (items: Conversation[]) => void): Unsubscribe {
+  const authUid = getFirebaseAuth().currentUser?.uid || uid;
   return resilientQueryListener(
-    () => query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)),
-    (snapshot) => callback(chooseConversation(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<Conversation, "id">) })), uid)),
+    () => query(getConversationsRef(), where("participantIds", "array-contains", authUid), limit(100)),
+    (snapshot) => callback(chooseConversation(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<Conversation, "id">) })), authUid)),
     "conversation",
   );
 }
@@ -183,9 +186,15 @@ export async function markConversationRead(conversationId: string, uid: string) 
 export async function sendMessage(conversationId: string, senderId: string, text: string, replyToId?: string) {
   const authUser = getFirebaseAuth().currentUser;
   if (!authUser) throw Object.assign(new Error("Your Firebase session is not ready. Please sign in again."), { code: "auth/not-signed-in" });
-  if (authUser.uid !== senderId) throw Object.assign(new Error("Your Nitra session is out of sync with Firebase. Please sign in again."), { code: "auth/session-mismatch" });
+  const actualSenderId = authUser.uid;
   const cleanText = text.trim(); if (!cleanText) return null;
-  const created = await addDoc(collection(getFirebaseDb(), "conversations", conversationId, "messages"), { senderId: authUser.uid, text: cleanText, replyToId: replyToId || null, reactions: {}, createdAt: serverTimestamp() });
+
+  const conversationSnapshot = await getDoc(doc(getFirebaseDb(), "conversations", conversationId));
+  if (!conversationSnapshot.exists()) throw Object.assign(new Error("This conversation no longer exists. Open the chat again."), { code: "chat/conversation-missing" });
+  const participants = (conversationSnapshot.data().participantIds || []) as string[];
+  if (!participants.includes(actualSenderId)) throw Object.assign(new Error("This chat belongs to a different Firebase account. Open the chat again."), { code: "chat/not-participant" });
+
+  const created = await addDoc(collection(getFirebaseDb(), "conversations", conversationId, "messages"), { senderId: actualSenderId, text: cleanText, replyToId: replyToId || null, reactions: {}, createdAt: serverTimestamp() });
   try { await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), { lastMessageId: created.id, lastMessageText: cleanText, lastMessageAt: serverTimestamp(), updatedAt: serverTimestamp() }); }
   catch (error) { console.warn("[Nitra] conversation metadata update failed:", error); }
   return created.id;
