@@ -150,13 +150,17 @@ export function subscribeToFriends(uid: string, callback: (userIds: string[]) =>
 }
 
 export async function findOrCreateDirectConversation(uid: string, otherUid: string) {
-  const existing = await getDocs(query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(50)));
-  const match = existing.docs.find((item) => {
-    const data = item.data();
-    const participants = (data.participantIds || []) as string[];
-    return data.type === "direct" && participants.length === 2 && participants.includes(otherUid);
-  });
-  if (match) return match.id;
+  try {
+    const existing = await getDocs(query(getConversationsRef(), where("participantIds", "array-contains", uid), limit(100)));
+    const match = existing.docs.find((item) => {
+      const data = item.data();
+      const participants = (data.participantIds || []) as string[];
+      return data.type === "direct" && participants.length === 2 && participants.includes(otherUid);
+    });
+    if (match) return match.id;
+  } catch (error) {
+    console.warn("[Nitra] conversation lookup failed, attempting to create a fresh conversation:", error);
+  }
 
   return (await addDoc(getConversationsRef(), {
     type: "direct",
@@ -217,14 +221,9 @@ export async function sendMessage(conversationId: string, senderId: string, text
   const cleanText = text.trim();
   if (!cleanText) return null;
 
-  const conversation = await getDoc(doc(getFirebaseDb(), "conversations", conversationId));
-  if (!conversation.exists()) throw Object.assign(new Error("This conversation no longer exists. Open the chat again."), { code: "chat/conversation-missing" });
-
-  const participantIds = (conversation.data().participantIds || []) as string[];
-  if (!participantIds.includes(authUser.uid)) {
-    throw Object.assign(new Error("This conversation does not belong to your Firebase account. Open the chat again."), { code: "chat/not-participant" });
-  }
-
+  // Do not pre-read the conversation. The message create rule already verifies
+  // that the authenticated user belongs to the conversation. This removes an
+  // unnecessary read that could block an otherwise valid send.
   const created = await addDoc(collection(getFirebaseDb(), "conversations", conversationId, "messages"), {
     senderId: authUser.uid,
     text: cleanText,
@@ -250,7 +249,7 @@ export async function sendMessage(conversationId: string, senderId: string, text
 export function mapFirestoreError(error: unknown) {
   const code = (error as { code?: string })?.code || "";
   const map: Record<string, string> = {
-    "permission-denied": "Firestore denied this action. Make sure the published rules belong to project nitra-chat-3fd77.",
+    "permission-denied": "Firestore denied this action. Check that your Firebase account is a participant in this chat and that the published rules are current.",
     "failed-precondition": "Firestore needs an index for this query. Check the Firebase console.",
     "auth/not-signed-in": "Your Firebase session is missing. Sign out and sign in again, then try again.",
     "auth/session-mismatch": "Your Nitra session is out of sync with Firebase. Sign out and sign in again, then try again.",
