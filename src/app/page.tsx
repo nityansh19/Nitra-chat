@@ -139,6 +139,22 @@ function Home() {
   }, []);
 
   useEffect(() => { if (ready) localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats)); }, [chats, ready]);
+  useEffect(() => {
+    if (!ready) return;
+    const raw = localStorage.getItem("nitra-open-chat");
+    if (!raw) return;
+    try {
+      const contact = JSON.parse(raw) as Contact;
+      const id = `chat-${contact.id}`;
+      setChats((prev) => prev.some((chat) => chat.id === id) ? prev : [...prev, { id, contact, messages: [], unread: 0, lastTime: "New" }]);
+      setActiveId(id);
+      setTab("inbox");
+    } catch {
+      // Ignore malformed navigation state.
+    } finally {
+      localStorage.removeItem("nitra-open-chat");
+    }
+  }, [ready]);
   useEffect(() => { if (ready) localStorage.setItem("nitra-ui-saved-v4", JSON.stringify(saved)); }, [saved, ready]);
   useEffect(() => { if (activeId) requestAnimationFrame(() => chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" })); }, [activeId, chats]);
   useEffect(() => { if (!toast) return; const t = window.setTimeout(() => setToast(""), 2400); return () => window.clearTimeout(t); }, [toast]);

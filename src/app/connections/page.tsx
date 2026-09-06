@@ -156,10 +156,11 @@ export default function ConnectionsPage() {
   }
 
   async function messageFriend(person: UserProfile) {
-    if (!currentUser?.uid) return;
-    setActionId(person.uid);
+    if (!currentUser?.uid) return setError("Sign in again before starting a conversation.");
+    setActionId(person.uid); setError("");
     try {
       await findOrCreateDirectConversation(currentUser.uid, person.uid);
+      localStorage.setItem("nitra-open-chat", JSON.stringify({ id: person.uid, name: person.name, initials: person.initials, email: person.email, nitraId: person.nitraId, bio: person.bio || "", status: person.status || "Available", online: true }));
       window.location.href = "/";
     } catch (err) { setError(mapFirestoreError(err)); }
     finally { setActionId(""); }
