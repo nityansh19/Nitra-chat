@@ -101,29 +101,32 @@ export function getCanonicalDirectConversationId(uid: string, otherUid: string) 
 
 export async function findOrCreateDirectConversation(uid: string, otherUid: string) {
   const authUser = getFirebaseAuth().currentUser;
-  const currentUid = authUser?.uid || uid;
+  if (!authUser) throw Object.assign(new Error("You are not signed in to Firebase."), { code: "auth/not-signed-in" });
+  const currentUid = authUser.uid;
+  if (currentUid !== uid) throw Object.assign(new Error("Your Nitra session is out of sync. Please sign in again."), { code: "auth/session-mismatch" });
+  if (currentUid === otherUid) throw new Error("You cannot start a conversation with yourself.");
+
   const directKey = directConversationKey(currentUid, otherUid);
   const canonicalId = getCanonicalDirectConversationId(currentUid, otherUid);
   const canonicalRef = doc(getFirebaseDb(), "conversations", canonicalId);
   const canonical = await getDoc(canonicalRef);
-  if (canonical.exists()) return canonicalId;
 
-  const existing = await getDocs(query(getConversationsRef(), where("participantIds", "array-contains", currentUid), limit(100)));
-  const matches = existing.docs.filter((item) => {
-    const data = item.data(); const participants = (data.participantIds || []) as string[];
-    return data.type === "direct" && participants.length === 2 && participants.includes(otherUid);
-  }).sort((a, b) => a.id.localeCompare(b.id));
-
-  const legacy = matches[0];
-  if (legacy) {
-    await updateDoc(legacy.ref, { directKey });
-    return legacy.id;
+  // From this point on, every new message between the two users uses exactly
+  // one deterministic room. Old legacy rooms are deliberately left readable,
+  // but are never selected for new writes. This prevents A and B from writing
+  // to different conversation documents.
+  if (!canonical.exists()) {
+    await setDoc(canonicalRef, {
+      type: "direct", participantIds: [currentUid, otherUid], directKey,
+      lastMessageText: "", createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+  } else {
+    const data = canonical.data();
+    const participants = (data.participantIds || []) as string[];
+    if (!participants.includes(currentUid) || !participants.includes(otherUid)) {
+      throw Object.assign(new Error("This direct conversation is not owned by these two Firebase accounts."), { code: "chat/not-participant" });
+    }
   }
-
-  await setDoc(canonicalRef, {
-    type: "direct", participantIds: [currentUid, otherUid], directKey, lastMessageText: "",
-    createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-  }, { merge: true });
   return canonicalId;
 }
 
