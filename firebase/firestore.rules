@@ -2,7 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() {
       return request.auth != null;
     }
@@ -13,9 +12,7 @@ service cloud.firestore {
 
     function isParticipant(conversationId) {
       return signedIn()
-        && request.auth.uid in get(
-          /databases/$(database)/documents/conversations/$(conversationId)
-        ).data.participantIds;
+        && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
     }
 
     match /users/{uid} {
@@ -25,7 +22,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Friend requests are private to the sender and receiver.
     match /friendRequests/{requestId} {
       allow create: if signedIn()
         && request.resource.data.senderId == request.auth.uid
@@ -33,49 +29,35 @@ service cloud.firestore {
         && request.resource.data.status == 'pending';
 
       allow read: if signedIn()
-        && (
-          resource.data.senderId == request.auth.uid
-          || resource.data.receiverId == request.auth.uid
-        );
+        && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
 
-      // Receiver can accept/decline. Sender can cancel.
-      // Neither side can change who the request is between.
       allow update: if signedIn()
         && request.resource.data.senderId == resource.data.senderId
         && request.resource.data.receiverId == resource.data.receiverId
         && (
-          (
-            resource.data.receiverId == request.auth.uid
-            && resource.data.status == 'pending'
-            && request.resource.data.status in ['accepted', 'declined']
-          )
+          (resource.data.receiverId == request.auth.uid && resource.data.status == 'pending' && request.resource.data.status in ['accepted', 'declined'])
           ||
-          (
-            resource.data.senderId == request.auth.uid
-            && resource.data.status == 'pending'
-            && request.resource.data.status == 'cancelled'
-          )
+          (resource.data.senderId == request.auth.uid && resource.data.status == 'pending' && request.resource.data.status == 'cancelled')
         );
 
       allow delete: if false;
     }
 
     match /conversations/{conversationId} {
-      allow read, update: if signedIn()
-        && request.auth.uid in resource.data.participantIds;
-
+      allow read: if isParticipant(conversationId);
       allow create: if signedIn()
-        && request.auth.uid in request.resource.data.participantIds;
-
+        && request.auth.uid in request.resource.data.participantIds
+        && request.resource.data.participantIds.size() == 2;
+      allow update: if isParticipant(conversationId);
       allow delete: if false;
 
       match /messages/{messageId} {
         allow read: if isParticipant(conversationId);
-
         allow create: if isParticipant(conversationId)
-          && request.resource.data.senderId == request.auth.uid;
-
-        allow update, delete: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0;
+        allow update, delete: if isParticipant(conversationId)
           && resource.data.senderId == request.auth.uid;
       }
     }
