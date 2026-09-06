@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Check, CheckCircle2, ChevronRight, Copy, MessageCircle, Search, Send, Sparkles, UserPlus, Users, Wifi, X, UserRound, Clock3 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { subscribeToFirebaseAuth } from "@/lib/firebase-auth";
 import {
   findOrCreateDirectConversation,
   getUserProfile,
@@ -47,12 +48,44 @@ export default function ConnectionsPage() {
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("nitra-demo-user");
-      if (!saved) return;
-      const user = JSON.parse(saved);
-      if (user.uid) setCurrentUser({ uid: user.uid, name: user.name, email: user.email, phone: user.phone || "", nitraId: user.id || user.nitraId || "@nitra_user", initials: user.initials || "NU", bio: user.bio || "", status: user.status || "Available" });
-    } catch { setCurrentUser(null); }
+    let alive = true;
+    const unsubscribe = subscribeToFirebaseAuth(async (firebaseUser) => {
+      if (!alive) return;
+      if (!firebaseUser) {
+        setCurrentUser(null);
+        return;
+      }
+
+      try {
+        const profile = await getUserProfile(firebaseUser.uid);
+        if (!alive) return;
+        setCurrentUser(profile ?? {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",
+          email: firebaseUser.email || "",
+          phone: "",
+          nitraId: "@nitra_user",
+          initials: (firebaseUser.displayName || "NU")
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() || "")
+            .join("") || "NU",
+          status: "Available",
+        });
+      } catch {
+        if (!alive) return;
+        setCurrentUser({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Nitra User",
+          email: firebaseUser.email || "",
+          phone: "",
+          nitraId: "@nitra_user",
+          initials: "NU",
+          status: "Available",
+        });
+      }
+    });
+    return () => { alive = false; unsubscribe(); };
   }, []);
 
   useEffect(() => {
