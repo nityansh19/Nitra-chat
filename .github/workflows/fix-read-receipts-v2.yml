@@ -17,31 +17,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Patch read receipts
         shell: python
         run: |
           from pathlib import Path
           import re
 
-          # Store the read watermark on the conversation itself. This uses the
-          # existing participant-only conversation update rule, so read receipts
-          # do not depend on a separate message-update permission.
           chat = Path('src/lib/firebase-chat.ts')
           s = chat.read_text()
           s = s.replace(
               'export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown };',
               'export type Conversation = { id: string; type: "direct" | "group"; title?: string; participantIds: string[]; lastMessageId?: string; lastMessageText?: string; lastMessageAt?: unknown; updatedAt?: unknown; readBy?: Record<string, unknown> };'
           )
-
           start = s.index('export function subscribeToMessages(')
           end = s.index('export async function sendMessage(', start)
-          replacement = '''export function subscribeToMessages(conversationId: string, callback: (items: ChatMessage[]) => void): Unsubscribe {\n  return onSnapshot(\n    query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),\n    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }))),\n  );\n}\n\nexport async function markConversationRead(conversationId: string, uid: string) {\n  const authUser = getFirebaseAuth().currentUser;\n  if (!authUser || authUser.uid !== uid) return;\n  try {\n    await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), {\n      [`readBy.${uid}`]: serverTimestamp(),\n    });\n  } catch {\n    // Keep the chat usable if the rules are temporarily stale.\n  }\n}\n\n'''
+          replacement = '''export function subscribeToMessages(conversationId: string, callback: (items: ChatMessage[]) => void): Unsubscribe {\n  return onSnapshot(\n    query(collection(getFirebaseDb(), "conversations", conversationId, "messages"), orderBy("createdAt", "asc")),\n    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMessage, "id">) }))),\n  );\n}\n\nexport async function markConversationRead(conversationId: string, uid: string) {\n  const authUser = getFirebaseAuth().currentUser;\n  if (!authUser || authUser.uid !== uid) return;\n  try {\n    await updateDoc(doc(getFirebaseDb(), "conversations", conversationId), {\n      [`readBy.${uid}`]: serverTimestamp(),\n    });\n  } catch {\n    // Keep the chat usable if rules are temporarily stale.\n  }\n}\n\n'''
           s = s[:start] + replacement + s[end:]
           chat.write_text(s)
 
-          # Patch the UI so the read watermark is used for both unread badges
-          # and blue checkmarks.
           page = Path('src/app/page.tsx')
           p = page.read_text()
           p = p.replace(
@@ -56,32 +49,19 @@ jobs:
               '{mine && <CheckCheck size={11} />}',
               '{mine && <CheckCheck size={11} className={message.read ? "text-sky-400" : "text-white/30"} />}'
           )
-          p = p.replace(
-              'firebaseConversationId: conversation.id,',
-              'firebaseConversationId: conversation.id, readBy: conversation.readBy || {},'
-          )
-
-          # Timestamp helper for Firestore Timestamp / Date / numeric values.
-          marker = 'function MessageBubble('
+          p = p.replace('firebaseConversationId: conversation.id,', 'firebaseConversationId: conversation.id, readBy: conversation.readBy || {},')
           if 'function firebaseTimestampMillis(value: unknown)' not in p:
-              helper = '''function firebaseTimestampMillis(value: unknown) {\n  if (value && typeof value === "object" && "toMillis" in value && typeof (value as { toMillis?: () => number }).toMillis === "function") {\n    return (value as { toMillis: () => number }).toMillis();\n  }\n  if (value instanceof Date) return value.getTime();\n  return typeof value === "number" ? value : 0;\n}\n\n'''
-              p = p.replace(marker, helper + marker, 1)
-
+              helper = '''function firebaseTimestampMillis(value: unknown) {\n  if (value && typeof value === "object" && "toMillis" in value && typeof (value as { toMillis?: () => number }).toMillis === "function") return (value as { toMillis: () => number }).toMillis();\n  if (value instanceof Date) return value.getTime();\n  return typeof value === "number" ? value : 0;\n}\n\n'''
+              p = p.replace('function MessageBubble(', helper + 'function MessageBubble(', 1)
           old_map = '''const messages: Message[] = firebaseMessages.map((m) => ({\n            id: hashMessageId(m.id),\n            from: m.senderId === user.uid ? "me" : "them",\n            text: m.text,\n            time: formatFirebaseTime(m.createdAt),\n          }));\n          const last = messages.at(-1);\n          return { ...current, messages, lastTime: last?.time || current.lastTime, unread: activeId === current.id ? 0 : messages.filter((m) => m.from === "them").length };'''
-          new_map = '''const messages: Message[] = firebaseMessages.map((m) => {\n            const mine = m.senderId === user.uid;\n            const readerId = mine ? current.contact.id : user.uid;\n            const readAt = current.readBy?.[readerId];\n            const read = firebaseTimestampMillis(readAt) > 0\n              && firebaseTimestampMillis(m.createdAt) > 0\n              && firebaseTimestampMillis(m.createdAt) <= firebaseTimestampMillis(readAt);\n            return {\n              id: hashMessageId(m.id),\n              from: mine ? "me" : "them",\n              text: m.text,\n              time: formatFirebaseTime(m.createdAt),\n              read,\n            };\n          });\n          const last = messages.at(-1);\n          const unread = activeId === current.id ? 0 : messages.filter((m) => m.from === "them" && !m.read).length;\n          return { ...current, messages, lastTime: last?.time || current.lastTime, unread };'''
-          if old_map not in p:
-              raise SystemExit('message mapping block not found')
+          new_map = '''const messages: Message[] = firebaseMessages.map((m) => {\n            const mine = m.senderId === user.uid;\n            const readerId = mine ? current.contact.id : user.uid;\n            const readAt = current.readBy?.[readerId];\n            const createdAt = firebaseTimestampMillis(m.createdAt);\n            const watermark = firebaseTimestampMillis(readAt);\n            const read = createdAt > 0 && watermark > 0 && createdAt <= watermark;\n            return { id: hashMessageId(m.id), from: mine ? "me" : "them", text: m.text, time: formatFirebaseTime(m.createdAt), read };\n          });\n          const last = messages.at(-1);\n          const unread = activeId === current.id ? 0 : messages.filter((m) => m.from === "them" && !m.read).length;\n          return { ...current, messages, lastTime: last?.time || current.lastTime, unread };'''
+          if old_map not in p: raise SystemExit('message mapping block not found')
           p = p.replace(old_map, new_map, 1)
-
-          # Mark the active conversation read as soon as it is opened. The
-          # conversation watermark is then broadcast to the sender in realtime.
           active_marker = 'const active = chats.find(chat => chat.id === activeId) || null;'
           if 'markConversationRead(active.firebaseConversationId' not in p:
               effect = '''useEffect(() => {\n  if (!user?.uid || !active?.firebaseConversationId) return;\n  void markConversationRead(active.firebaseConversationId, user.uid);\n}, [user?.uid, active?.firebaseConversationId]);\n\n'''
-              if active_marker not in p:
-                  raise SystemExit('active chat marker not found')
+              if active_marker not in p: raise SystemExit('active chat marker not found')
               p = p.replace(active_marker, active_marker + '\n\n' + effect, 1)
-
           page.write_text(p)
       - name: Build check
         run: npm install --no-audit --no-fund && npm run build
