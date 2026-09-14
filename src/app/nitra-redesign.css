@@ -1,0 +1,398 @@
+/* Nitra Chat — modular workspace redesign
+   Loaded after the legacy theme so the product can evolve without touching realtime chat logic. */
+
+:root {
+  --nitra-bg: #08090d;
+  --nitra-panel: rgba(13, 15, 21, .88);
+  --nitra-panel-strong: rgba(17, 19, 27, .96);
+  --nitra-soft: rgba(255, 255, 255, .055);
+  --nitra-soft-2: rgba(255, 255, 255, .08);
+  --nitra-line: rgba(255, 255, 255, .075);
+  --nitra-line-strong: rgba(255, 255, 255, .12);
+  --nitra-text: #f7f8fb;
+  --nitra-muted: rgba(240, 243, 250, .46);
+  --nitra-faint: rgba(240, 243, 250, .24);
+  --nitra-accent: #8b7cff;
+  --nitra-accent-2: #61d6ff;
+  --nitra-success: #65e7a5;
+  --nitra-radius-sm: 12px;
+  --nitra-radius-md: 18px;
+  --nitra-radius-lg: 24px;
+  --nitra-shadow: 0 24px 80px rgba(0, 0, 0, .34);
+}
+
+/* ---------- Workspace shell ---------- */
+main.relative.h-\[100dvh\] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--nitra-text);
+  background:
+    radial-gradient(circle at 13% 8%, rgba(139, 124, 255, .15), transparent 25%),
+    radial-gradient(circle at 87% 90%, rgba(97, 214, 255, .09), transparent 26%),
+    linear-gradient(145deg, #090a0f 0%, #08090d 54%, #0a0b11 100%) !important;
+}
+
+main.relative.h-\[100dvh\]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .22;
+  background-image:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.45), transparent 66%);
+  z-index: 0;
+}
+
+main.relative.h-\[100dvh\] > .relative.flex.h-full {
+  position: relative;
+  z-index: 1;
+  gap: 10px;
+  padding: 10px !important;
+}
+
+main.relative.h-\[100dvh\] .glass {
+  background: linear-gradient(180deg, rgba(18, 20, 28, .9), rgba(12, 14, 20, .86)) !important;
+  border-color: var(--nitra-line) !important;
+  box-shadow: var(--nitra-shadow), inset 0 1px 0 rgba(255,255,255,.03) !important;
+  backdrop-filter: blur(28px) saturate(125%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(125%) !important;
+}
+
+/* ---------- App rail: compact, familiar, modular ---------- */
+main.relative.h-\[100dvh\] .desktop-rail {
+  width: 68px !important;
+  min-width: 68px !important;
+  margin: 0 !important;
+  border: 1px solid var(--nitra-line) !important;
+  border-radius: var(--nitra-radius-lg) !important;
+  background: rgba(11, 13, 18, .78) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025), 0 22px 65px rgba(0,0,0,.28);
+  overflow: hidden;
+}
+
+main.relative.h-\[100dvh\] .desktop-rail button,
+main.relative.h-\[100dvh\] .desktop-rail a {
+  border-radius: 15px !important;
+  transition: transform .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease !important;
+}
+
+main.relative.h-\[100dvh\] .desktop-rail button:hover,
+main.relative.h-\[100dvh\] .desktop-rail a:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.075) !important;
+}
+
+/* ---------- Conversation list ---------- */
+main.relative.h-\[100dvh\] section.glass.ml-2.fixed,
+main.relative.h-\[100dvh\] section.glass[class*="w-"] {
+  border-radius: var(--nitra-radius-lg) !important;
+}
+
+main.relative.h-\[100dvh\] section.glass.ml-2.fixed {
+  margin-left: 0 !important;
+}
+
+main.relative.h-\[100dvh\] input[type="search"],
+main.relative.h-\[100dvh\] input[placeholder*="Search"],
+main.relative.h-\[100dvh\] input[placeholder*="search"] {
+  height: 42px;
+  border: 1px solid var(--nitra-line) !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,.035) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+
+main.relative.h-\[100dvh\] input[type="search"]:focus,
+main.relative.h-\[100dvh\] input[placeholder*="Search"]:focus,
+main.relative.h-\[100dvh\] input[placeholder*="search"]:focus {
+  border-color: rgba(139,124,255,.38) !important;
+  background: rgba(255,255,255,.05) !important;
+  box-shadow: 0 0 0 4px rgba(139,124,255,.07);
+}
+
+/* Conversation rows get a restrained card treatment instead of a crowded list. */
+main.relative.h-\[100dvh\] aside button,
+main.relative.h-\[100dvh\] section.glass > div button {
+  transition: background-color .18s ease, border-color .18s ease, transform .18s ease, color .18s ease;
+}
+
+main.relative.h-\[100dvh\] section.glass > div > button[class*="rounded"]:hover {
+  background: rgba(255,255,255,.055) !important;
+}
+
+/* ---------- Main chat canvas ---------- */
+main.relative.h-\[100dvh\] > .relative.flex.h-full > section.glass.relative {
+  min-width: 0;
+  border-radius: var(--nitra-radius-lg) !important;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 105%, rgba(139,124,255,.055), transparent 36%),
+    linear-gradient(180deg, rgba(14,16,23,.9), rgba(10,12,17,.94)) !important;
+}
+
+main.relative.h-\[100dvh\] > .relative.flex.h-full > section.glass.relative::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .18;
+  background-image: radial-gradient(rgba(255,255,255,.14) .7px, transparent .7px);
+  background-size: 20px 20px;
+  mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 76%, transparent);
+}
+
+main.relative.h-\[100dvh\] header {
+  min-height: 68px;
+  border-bottom: 1px solid var(--nitra-line) !important;
+  background: rgba(12, 14, 20, .72) !important;
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  box-shadow: 0 12px 32px rgba(0,0,0,.10);
+}
+
+main.relative.h-\[100dvh\] header .h-11.w-11,
+main.relative.h-\[100dvh\] .h-11.w-11.rounded-2xl {
+  border-radius: 15px !important;
+  border-color: rgba(255,255,255,.1) !important;
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.1), transparent 34%),
+    linear-gradient(145deg, rgba(139,124,255,.24), rgba(97,214,255,.08)) !important;
+}
+
+/* ---------- Messages ---------- */
+main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 {
+  padding-top: 26px !important;
+  padding-bottom: 30px !important;
+  scroll-behavior: smooth;
+}
+
+main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 > .mx-auto {
+  max-width: 860px !important;
+}
+
+main.relative.h-\[100dvh\] .group.flex > .relative > div.rounded-\[20px\] {
+  position: relative;
+  border-radius: 18px !important;
+  padding: 10px 14px !important;
+  line-height: 1.55 !important;
+  letter-spacing: -.005em;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+main.relative.h-\[100dvh\] .group.flex:hover > .relative > div.rounded-\[20px\] {
+  transform: translateY(-1px);
+}
+
+/* Incoming bubble */
+main.relative.h-\[100dvh\] .group.flex.justify-start > .relative > div.rounded-\[20px\] {
+  background: rgba(255,255,255,.047) !important;
+  border: 1px solid rgba(255,255,255,.075) !important;
+  color: rgba(250,251,255,.88) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.022);
+}
+
+/* Outgoing bubble: recognizable but not generic pure-white */
+main.relative.h-\[100dvh\] .group.flex.justify-end > .relative > div.rounded-\[20px\] {
+  color: #fafaff !important;
+  border: 1px solid rgba(155,143,255,.24) !important;
+  background:
+    linear-gradient(135deg, rgba(126,105,255,.92), rgba(102,91,224,.92) 58%, rgba(78,104,210,.94)) !important;
+  box-shadow: 0 10px 28px rgba(75,62,190,.18), inset 0 1px 0 rgba(255,255,255,.12) !important;
+}
+
+main.relative.h-\[100dvh\] .group.flex > .relative > .mt-1 {
+  margin-top: 5px !important;
+  font-size: 10px !important;
+  color: rgba(240,243,250,.25) !important;
+}
+
+main.relative.h-\[100dvh\] .group > .relative > .group-hover\:flex {
+  border-radius: 13px !important;
+  border-color: rgba(255,255,255,.085) !important;
+  background: rgba(14,16,22,.92) !important;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 14px 36px rgba(0,0,0,.32) !important;
+}
+
+/* ---------- Composer: central interaction element ---------- */
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 {
+  position: relative;
+  z-index: 5;
+  padding: 8px 18px 18px !important;
+  background: linear-gradient(to top, rgba(9,10,15,.96), rgba(9,10,15,.70) 55%, transparent) !important;
+}
+
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 > .mx-auto {
+  max-width: 860px !important;
+}
+
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .relative.rounded-2xl {
+  border: 1px solid rgba(255,255,255,.10) !important;
+  border-radius: 20px !important;
+  background: linear-gradient(180deg, rgba(27,30,40,.96), rgba(19,21,29,.96)) !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.035) !important;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .relative.rounded-2xl:focus-within {
+  transform: translateY(-1px);
+  border-color: rgba(139,124,255,.34) !important;
+  box-shadow: 0 20px 56px rgba(0,0,0,.3), 0 0 0 4px rgba(139,124,255,.06), inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+
+main.relative.h-\[100dvh\] textarea {
+  color: rgba(250,251,255,.92) !important;
+  caret-color: #a99fff;
+}
+
+main.relative.h-\[100dvh\] textarea::placeholder {
+  color: rgba(240,243,250,.27) !important;
+}
+
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 button.bg-white,
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 button[class*="bg-white"] {
+  color: white !important;
+  background: linear-gradient(135deg, #8b7cff, #6968d8 68%, #527fcf) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  box-shadow: 0 8px 24px rgba(105,104,216,.25) !important;
+}
+
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 button.bg-white:hover,
+main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 button[class*="bg-white"]:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+/* ---------- Contact details panel ---------- */
+main.relative.h-\[100dvh\] .details-panel {
+  border-radius: var(--nitra-radius-lg) !important;
+  border: 1px solid var(--nitra-line) !important;
+  background: rgba(13,15,21,.83) !important;
+  box-shadow: var(--nitra-shadow), inset 0 1px 0 rgba(255,255,255,.025) !important;
+}
+
+main.relative.h-\[100dvh\] .details-panel [class*="rounded-2xl"],
+main.relative.h-\[100dvh\] .details-panel [class*="rounded-xl"] {
+  border-color: rgba(255,255,255,.07) !important;
+}
+
+/* ---------- Popovers / modals ---------- */
+main.relative.h-\[100dvh\] .absolute.bottom-14.left-0,
+.fixed.inset-0.z-50 > *,
+.fixed.inset-0.z-\[70\] > * {
+  border-color: var(--nitra-line-strong) !important;
+  background: rgba(16,18,25,.96) !important;
+  box-shadow: 0 28px 90px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.035) !important;
+  backdrop-filter: blur(28px) saturate(125%) !important;
+}
+
+.fixed.inset-0.z-50,
+.fixed.inset-0.z-\[70\] {
+  background: rgba(4,5,8,.66) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* ---------- Auth refresh ---------- */
+main.noise-bg {
+  background:
+    radial-gradient(circle at 15% 18%, rgba(139,124,255,.18), transparent 27%),
+    radial-gradient(circle at 85% 84%, rgba(97,214,255,.11), transparent 28%),
+    linear-gradient(145deg, #07080c, #090a10 60%, #08090e) !important;
+}
+
+main.noise-bg > .relative.z-10.grid {
+  border-radius: 28px !important;
+  border-color: rgba(255,255,255,.095) !important;
+  background: rgba(13,15,21,.8) !important;
+  box-shadow: 0 34px 110px rgba(0,0,0,.54), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+main.noise-bg .field {
+  height: 52px !important;
+  border-radius: 15px !important;
+  background: rgba(255,255,255,.035) !important;
+}
+
+main.noise-bg form > button {
+  height: 52px !important;
+  border-radius: 15px !important;
+  color: white !important;
+  background: linear-gradient(135deg, #8b7cff, #6968d8 70%, #527fcf) !important;
+  box-shadow: 0 12px 34px rgba(104,94,220,.24) !important;
+}
+
+/* ---------- Motion and interaction polish ---------- */
+@media (hover: hover) {
+  main.relative.h-\[100dvh\] button:not(:disabled):active,
+  main.noise-bg button:not(:disabled):active {
+    transform: scale(.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1200px) {
+  main.relative.h-\[100dvh\] > .relative.flex.h-full {
+    gap: 8px;
+    padding: 8px !important;
+  }
+}
+
+/* ---------- Mobile: familiar messenger flow, zero wasted chrome ---------- */
+@media (max-width: 767px) {
+  main.relative.h-\[100dvh\] > .relative.flex.h-full {
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+
+  main.relative.h-\[100dvh\] > .relative.flex.h-full > section.glass.relative,
+  main.relative.h-\[100dvh\] section.glass.ml-2.fixed {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  main.relative.h-\[100dvh\] header {
+    min-height: 64px !important;
+    height: 64px !important;
+    background: rgba(11,13,18,.93) !important;
+  }
+
+  main.relative.h-\[100dvh\] .overflow-y-auto.px-3.py-5 {
+    padding: 16px 12px 26px !important;
+  }
+
+  main.relative.h-\[100dvh\] .group.flex > .relative {
+    max-width: 91% !important;
+  }
+
+  main.relative.h-\[100dvh\] .group.flex > .relative > div.rounded-\[20px\] {
+    border-radius: 17px !important;
+    padding: 10px 13px !important;
+  }
+
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 {
+    padding: 6px 10px max(10px, env(safe-area-inset-bottom)) !important;
+    background: linear-gradient(to top, rgba(8,9,13,.99), rgba(8,9,13,.88) 70%, transparent) !important;
+  }
+
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 .relative.rounded-2xl {
+    border-radius: 19px !important;
+  }
+
+  main.relative.h-\[100dvh\] .shrink-0.px-3.pb-3.pt-1 textarea {
+    font-size: 16px !important;
+  }
+}
