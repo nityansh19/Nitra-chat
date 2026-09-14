@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./nitra-premium.css";
+import "./nitra-redesign.css";
 
 export const dynamic = "force-dynamic";
 
